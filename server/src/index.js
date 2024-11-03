@@ -202,37 +202,73 @@ app.post('/api/login', async (req, res) => {
 // Board routes
 app.post('/api/boards', authenticateToken, async (req, res) => {
   const { title } = req.body;
+  const client = await pool.connect();
+  
   try {
-    const result = await pool.query(
+    await client.query('BEGIN');
+    
+    // Create the board
+    const boardResult = await client.query(
       'INSERT INTO boards (title, user_id) VALUES ($1, $2) RETURNING *',
       [title, req.user.id]
     );
+    
+    // Add creator as board owner
+    await client.query(
+      'INSERT INTO board_members (board_id, user_id, role) VALUES ($1, $2, $3)',
+      [boardResult.rows[0].id, req.user.id, 'owner']
+    );
+    
+    // Get the board with role
+    const result = await client.query(
+      `SELECT b.*, bm.role 
+       FROM boards b 
+       JOIN board_members bm ON b.id = bm.board_id 
+       WHERE b.id = $1 AND bm.user_id = $2`,
+      [boardResult.rows[0].id, req.user.id]
+    );
+    
+    await client.query('COMMIT');
     res.json(result.rows[0]);
   } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Error creating board:', err);
     res.status(500).json({ error: 'Error creating board' });
+  } finally {
+    client.release();
   }
 });
 
 app.get('/api/boards', authenticateToken, async (req, res) => {
   try {
     const result = await pool.query(
-      'SELECT * FROM boards WHERE user_id = $1 ORDER BY created_at DESC',
+      `SELECT DISTINCT b.*, bm.role
+       FROM boards b
+       JOIN board_members bm ON b.id = bm.board_id
+       WHERE bm.user_id = $1
+       ORDER BY b.created_at DESC`,
       [req.user.id]
     );
     res.json(result.rows);
   } catch (err) {
+    console.error('Error fetching boards:', err);
     res.status(500).json({ error: 'Error fetching boards' });
   }
 });
 
 app.get('/api/boards/:id', authenticateToken, async (req, res) => {
   try {
+    // Check if user is a board member
     const result = await pool.query(
-      'SELECT * FROM boards WHERE id = $1 AND user_id = $2',
+      `SELECT b.*, bm.role
+       FROM boards b
+       JOIN board_members bm ON b.id = bm.board_id
+       WHERE b.id = $1 AND bm.user_id = $2`,
       [req.params.id, req.user.id]
     );
+    
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Board not found' });
+      return res.status(404).json({ error: 'Board not found or access denied' });
     }
     res.json(result.rows[0]);
   } catch (err) {
@@ -470,22 +506,73 @@ app.post('/api/boards/:boardId/messages', authenticateToken, async (req, res) =>
 
 // User Profile routes
 app.patch('/api/users/profile', authenticateToken, async (req, res) => {
-  const { username, profile_picture, user_info } = req.body;
+  const { username, profile_picture, bio } = req.body;
 
   try {
+    // Check if username is already taken by another user
+    if (username) {
+      const usernameCheck = await pool.query(
+        'SELECT id FROM users WHERE username = $1 AND id != $2',
+        [username, req.user.id]
+      );
+
+      if (usernameCheck.rows.length > 0) {
+        return res.status(400).json({ error: 'Username already taken' });
+      }
+    }
+
+    // Handle profile picture
+    let profilePicData = profile_picture;
+    if (profile_picture && profile_picture.startsWith('data:image')) {
+      // If it's a new base64 image, store it as is
+      profilePicData = profile_picture;
+    } else if (!profile_picture) {
+      // If no new image, keep existing one
+      const currentUser = await pool.query(
+        'SELECT profile_picture FROM users WHERE id = $1',
+        [req.user.id]
+      );
+      profilePicData = currentUser.rows[0]?.profile_picture;
+    }
+
+    // Update user profile
     const result = await pool.query(
       `UPDATE users 
        SET username = COALESCE($1, username),
-           profile_picture = COALESCE($2, profile_picture),
+           profile_picture = $2,
            user_info = COALESCE($3, user_info)
        WHERE id = $4
        RETURNING id, email, username, profile_picture, user_info`,
-      [username, profile_picture, user_info, req.user.id]
+      [username, profilePicData, bio, req.user.id]
     );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
 
     res.json(result.rows[0]);
   } catch (err) {
+    console.error('Error updating profile:', err);
     res.status(500).json({ error: 'Error updating profile' });
+  }
+});
+
+// Add a GET endpoint for user profile
+app.get('/api/users/profile', authenticateToken, async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT id, email, username, profile_picture, user_info FROM users WHERE id = $1',
+      [req.user.id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Error fetching profile:', err);
+    res.status(500).json({ error: 'Error fetching profile' });
   }
 });
 
@@ -665,6 +752,269 @@ app.post('/api/boards', authenticateToken, async (req, res) => {
     res.status(500).json({ error: 'Error creating board' });
   } finally {
     client.release();
+  }
+});
+
+// Add these new endpoints
+
+// Search users endpoint
+app.get('/api/users/search', authenticateToken, async (req, res) => {
+  const { q } = req.query;
+  try {
+    const result = await pool.query(
+      `SELECT id, username, email, profile_picture 
+       FROM users 
+       WHERE email ILIKE $1 OR username ILIKE $1
+       LIMIT 10`,
+      [`%${q}%`]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Error searching users' });
+  }
+});
+
+// Update list position
+app.patch('/api/lists/:listId/move', authenticateToken, async (req, res) => {
+  const { listId } = req.params;
+  const { position, boardId } = req.body;
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    // Verify user has permission
+    const boardCheck = await client.query(
+      `SELECT bm.role 
+       FROM board_members bm
+       JOIN lists l ON l.board_id = bm.board_id
+       WHERE l.id = $1 AND bm.user_id = $2`,
+      [listId, req.user.id]
+    );
+
+    if (boardCheck.rows.length === 0) {
+      throw new Error('Not authorized');
+    }
+
+    // Update positions
+    await client.query(
+      `UPDATE lists 
+       SET position = position + 1
+       WHERE board_id = $1 AND position >= $2`,
+      [boardId, position]
+    );
+
+    const result = await client.query(
+      `UPDATE lists 
+       SET position = $1
+       WHERE id = $2
+       RETURNING *`,
+      [position, listId]
+    );
+
+    await client.query('COMMIT');
+    res.json(result.rows[0]);
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Error moving list:', err);
+    res.status(500).json({ error: 'Error moving list' });
+  } finally {
+    client.release();
+  }
+});
+
+// Delete board member
+app.delete('/api/boards/:boardId/members/:memberId', authenticateToken, async (req, res) => {
+  const { boardId, memberId } = req.params;
+
+  try {
+    // Check if user is board owner or admin
+    const permissionCheck = await pool.query(
+      `SELECT role FROM board_members 
+       WHERE board_id = $1 AND user_id = $2 AND role IN ('owner', 'admin')`,
+      [boardId, req.user.id]
+    );
+
+    if (permissionCheck.rows.length === 0) {
+      return res.status(403).json({ error: 'Not authorized to remove members' });
+    }
+
+    // Check if target is not the owner
+    const targetCheck = await pool.query(
+      `SELECT role FROM board_members WHERE board_id = $1 AND user_id = $2`,
+      [boardId, memberId]
+    );
+
+    if (targetCheck.rows[0]?.role === 'owner') {
+      return res.status(403).json({ error: 'Cannot remove board owner' });
+    }
+
+    await pool.query(
+      'DELETE FROM board_members WHERE board_id = $1 AND user_id = $2',
+      [boardId, memberId]
+    );
+
+    res.json({ message: 'Member removed successfully' });
+  } catch (err) {
+    res.status(500).json({ error: 'Error removing member' });
+  }
+});
+
+// Update board member role
+app.patch('/api/boards/:boardId/members/:memberId', authenticateToken, async (req, res) => {
+  const { boardId, memberId } = req.params;
+  const { role } = req.body;
+
+  try {
+    // Check if user is board owner
+    const permissionCheck = await pool.query(
+      `SELECT role FROM board_members 
+       WHERE board_id = $1 AND user_id = $2 AND role = 'owner'`,
+      [boardId, req.user.id]
+    );
+
+    if (permissionCheck.rows.length === 0) {
+      return res.status(403).json({ error: 'Only board owner can change roles' });
+    }
+
+    // Update role
+    const result = await pool.query(
+      `UPDATE board_members 
+       SET role = $1
+       WHERE board_id = $2 AND user_id = $3
+       RETURNING *`,
+      [role, boardId, memberId]
+    );
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: 'Error updating member role' });
+  }
+});
+
+// Add permission middleware
+const checkBoardPermission = (requiredRole) => async (req, res, next) => {
+  const boardId = req.params.boardId;
+  try {
+    const result = await pool.query(
+      `SELECT role FROM board_members 
+       WHERE board_id = $1 AND user_id = $2`,
+      [boardId, req.user.id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(403).json({ error: 'Not authorized to access this board' });
+    }
+
+    const userRole = result.rows[0].role;
+    const roles = {
+      member: 0,
+      admin: 1,
+      owner: 2
+    };
+
+    if (roles[userRole] < roles[requiredRole]) {
+      return res.status(403).json({ error: `Requires ${requiredRole} permission` });
+    }
+
+    req.userRole = userRole;
+    next();
+  } catch (err) {
+    res.status(500).json({ error: 'Error checking permissions' });
+  }
+};
+
+// Update existing board routes to use permission middleware
+app.get('/api/boards/:boardId', authenticateToken, checkBoardPermission('member'), async (req, res) => {
+  // ... existing code
+});
+
+app.post('/api/boards/:boardId/lists', authenticateToken, checkBoardPermission('member'), async (req, res) => {
+  // ... existing code
+});
+
+app.delete('/api/boards/:boardId', authenticateToken, checkBoardPermission('owner'), async (req, res) => {
+  try {
+    await pool.query('DELETE FROM boards WHERE id = $1', [req.params.boardId]);
+    res.json({ message: 'Board deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ error: 'Error deleting board' });
+  }
+});
+
+app.patch('/api/boards/:boardId', authenticateToken, checkBoardPermission('admin'), async (req, res) => {
+  const { title, description } = req.body;
+  try {
+    const result = await pool.query(
+      'UPDATE boards SET title = $1, description = $2 WHERE id = $3 RETURNING *',
+      [title, description, req.params.boardId]
+    );
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: 'Error updating board' });
+  }
+});
+
+// Add these new endpoints
+
+// Labels
+app.post('/api/boards/:boardId/labels', authenticateToken, async (req, res) => {
+  const { name, color } = req.body;
+  const { boardId } = req.params;
+
+  try {
+    const result = await pool.query(
+      `INSERT INTO task_labels (name, color, board_id)
+       VALUES ($1, $2, $3)
+       RETURNING *`,
+      [name, color, boardId]
+    );
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: 'Error creating label' });
+  }
+});
+
+app.get('/api/boards/:boardId/labels', authenticateToken, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT * FROM task_labels WHERE board_id = $1`,
+      [req.params.boardId]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Error fetching labels' });
+  }
+});
+
+app.post('/api/tasks/:taskId/labels', authenticateToken, async (req, res) => {
+  const { taskId } = req.params;
+  const { labelId } = req.body;
+
+  try {
+    await pool.query(
+      `INSERT INTO task_label_assignments (task_id, label_id)
+       VALUES ($1, $2)`,
+      [taskId, labelId]
+    );
+    res.json({ message: 'Label added successfully' });
+  } catch (err) {
+    res.status(500).json({ error: 'Error adding label to task' });
+  }
+});
+
+app.delete('/api/tasks/:taskId/labels/:labelId', authenticateToken, async (req, res) => {
+  const { taskId, labelId } = req.params;
+
+  try {
+    await pool.query(
+      `DELETE FROM task_label_assignments
+       WHERE task_id = $1 AND label_id = $2`,
+      [taskId, labelId]
+    );
+    res.json({ message: 'Label removed successfully' });
+  } catch (err) {
+    res.status(500).json({ error: 'Error removing label from task' });
   }
 });
 

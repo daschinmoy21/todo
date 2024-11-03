@@ -18,7 +18,7 @@ import {
   IconButton,
 } from '@mui/material';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
-import { createList, createTask, getLists, getBoard, moveTask } from '../services/api';
+import { createList, createTask, getLists, getBoard, moveTask, moveList } from '../services/api';
 import { useDarkMode } from '../context/DarkModeContext';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import HomeIcon from '@mui/icons-material/Home';
@@ -26,6 +26,8 @@ import AddIcon from '@mui/icons-material/Add';
 import ChatPanel from './ChatPanel';
 import ChatIcon from '@mui/icons-material/Chat';
 import TaskComments from './TaskComments';
+import BoardMembers from './BoardMembers';
+import GroupIcon from '@mui/icons-material/Group';
 
 function Board() {
   const { id: boardId } = useParams();
@@ -41,6 +43,9 @@ function Board() {
   const [chatOpen, setChatOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
   const [commentsOpen, setCommentsOpen] = useState(false);
+  const [membersDialogOpen, setMembersDialogOpen] = useState(false);
+  const [isDraggingList, setIsDraggingList] = useState(false);
+  const [userRole, setUserRole] = useState(null);
 
   useEffect(() => {
     const loadBoardData = async () => {
@@ -51,8 +56,12 @@ function Board() {
         ]);
         setBoard(boardResponse.data);
         setLists(listsResponse.data);
+        setUserRole(boardResponse.data.role);
       } catch (err) {
         console.error('Error loading board data:', err);
+        if (err.response?.status === 404) {
+          navigate('/');
+        }
       }
     };
 
@@ -88,12 +97,9 @@ function Board() {
   };
 
   const onDragEnd = async (result) => {
-    const { source, destination, draggableId } = result;
+    const { source, destination, draggableId, type } = result;
 
-    // If dropped outside a droppable area
     if (!destination) return;
-
-    // If dropped in the same position
     if (
       source.droppableId === destination.droppableId &&
       source.index === destination.index
@@ -101,35 +107,49 @@ function Board() {
       return;
     }
 
-    // Get the task and lists information
+    if (type === 'list') {
+      try {
+        const newLists = Array.from(lists);
+        const [movedList] = newLists.splice(source.index, 1);
+        newLists.splice(destination.index, 0, movedList);
+
+        const updatedLists = newLists.map((list, index) => ({
+          ...list,
+          position: index,
+        }));
+
+        setLists(updatedLists);
+
+        await moveList(draggableId.split('-')[1], destination.index, boardId);
+      } catch (err) {
+        console.error('Error moving list:', err);
+        const response = await getLists(boardId);
+        setLists(response.data);
+      }
+      return;
+    }
+
     const sourceListId = source.droppableId.split('-')[1];
     const destinationListId = destination.droppableId.split('-')[1];
     const taskId = draggableId.split('-')[1];
 
     try {
-      // Create new lists array with updated task positions
       const newLists = [...lists];
       
-      // Find source and destination list
       const sourceList = newLists.find(list => list.id === parseInt(sourceListId));
       const destinationList = newLists.find(list => list.id === parseInt(destinationListId));
 
       if (!sourceList || !destinationList) return;
 
-      // Remove task from source list
       const [movedTask] = sourceList.tasks.splice(source.index, 1);
       
-      // Add task to destination list
       destinationList.tasks.splice(destination.index, 0, movedTask);
 
-      // Update the UI immediately
       setLists(newLists);
 
-      // Send update to server
       await moveTask(taskId, parseInt(destinationListId), destination.index);
     } catch (err) {
       console.error('Error moving task:', err);
-      // Reload lists to revert to the server state if there was an error
       const response = await getLists(boardId);
       setLists(response.data);
     }
@@ -170,36 +190,41 @@ function Board() {
         </Box>
       </Box>
 
-      <Box sx={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center',
-        mb: 4,
-        backgroundColor: darkMode ? 'background.paper' : 'background.default',
-        p: 2,
-        borderRadius: 2,
-        boxShadow: 1,
-      }}>
-        <Typography variant="h4" component="h1">
-          {board?.title || 'Loading...'}
-        </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 4 }}>
+        <Typography variant="h4">{board?.title}</Typography>
         <Box>
+          {(userRole === 'owner' || userRole === 'admin') && (
+            <IconButton 
+              onClick={() => setMembersDialogOpen(true)}
+              sx={{ mr: 2 }}
+            >
+              <GroupIcon />
+            </IconButton>
+          )}
           <IconButton 
             onClick={() => setChatOpen(!chatOpen)}
             sx={{ mr: 2 }}
-            color={chatOpen ? 'primary' : 'default'}
           >
             <ChatIcon />
           </IconButton>
-          <Button 
-            variant="contained" 
-            onClick={() => setNewListDialogOpen(true)}
-            startIcon={<AddIcon />}
-          >
-            Add List
-          </Button>
+          {userRole && (
+            <Button 
+              variant="contained" 
+              onClick={() => setNewListDialogOpen(true)}
+              startIcon={<AddIcon />}
+            >
+              Add List
+            </Button>
+          )}
         </Box>
       </Box>
+
+      <BoardMembers
+        boardId={boardId}
+        open={membersDialogOpen}
+        onClose={() => setMembersDialogOpen(false)}
+        userRole={userRole}
+      />
 
       <ChatPanel 
         boardId={boardId}
@@ -208,120 +233,140 @@ function Board() {
       />
 
       <DragDropContext onDragEnd={onDragEnd}>
-        <Box sx={{ display: 'flex', overflowX: 'auto', pb: 2, gap: 2 }}>
-          {lists.map((list) => (
-            <Paper 
-              key={list.id} 
-              sx={{ 
-                minWidth: 300,
-                maxWidth: 300,
-                bgcolor: darkMode ? 'background.paper' : 'grey.100',
-                p: 2,
-                borderRadius: 2,
-                '& .MuiCard-root': {
-                  bgcolor: darkMode ? 'background.default' : 'background.paper',
-                },
-                '& .MuiTypography-root': {
-                  color: darkMode ? 'text.primary' : 'inherit',
-                },
-                boxShadow: darkMode 
-                  ? '0 4px 6px rgba(0, 0, 0, 0.3)' 
-                  : '0 4px 6px rgba(0, 0, 0, 0.1)',
-              }}
+        <Droppable droppableId="lists" direction="horizontal" type="list">
+          {(provided) => (
+            <Box
+              ref={provided.innerRef}
+              {...provided.droppableProps}
+              sx={{ display: 'flex', overflowX: 'auto', pb: 2, gap: 2 }}
             >
-              <Box sx={{ mb: 2 }}>
-                <Typography 
-                  variant="h6" 
-                  sx={{ 
-                    mb: 1,
-                    fontWeight: 600,
-                    color: darkMode ? 'text.primary' : 'text.primary',
-                  }}
+              {lists.map((list, index) => (
+                <Draggable
+                  key={list.id}
+                  draggableId={`list-${list.id}`}
+                  index={index}
                 >
-                  {list.title}
-                </Typography>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  onClick={() => {
-                    setSelectedListId(list.id);
-                    setNewTaskDialogOpen(true);
-                  }}
-                  sx={{
-                    borderColor: darkMode ? 'primary.main' : 'inherit',
-                    color: darkMode ? 'primary.main' : 'inherit',
-                  }}
-                >
-                  Add Task
-                </Button>
-              </Box>
-              
-              <Droppable droppableId={`list-${list.id}`}>
-                {(provided) => (
-                  <div 
-                    ref={provided.innerRef} 
-                    {...provided.droppableProps}
-                    style={{ minHeight: '100px' }}
-                  >
-                    {list.tasks && list.tasks.map((task, index) => (
-                      <Draggable
-                        key={task.id}
-                        draggableId={`task-${task.id}`}
-                        index={index}
-                      >
+                  {(provided, snapshot) => (
+                    <Paper
+                      ref={provided.innerRef}
+                      {...provided.draggableProps}
+                      {...provided.dragHandleProps}
+                      sx={{
+                        minWidth: 300,
+                        maxWidth: 300,
+                        bgcolor: darkMode ? 'background.paper' : 'grey.100',
+                        p: 2,
+                        borderRadius: 2,
+                        opacity: snapshot.isDragging ? 0.9 : 1,
+                        '& .MuiCard-root': {
+                          bgcolor: darkMode ? 'background.default' : 'background.paper',
+                        },
+                        '& .MuiTypography-root': {
+                          color: darkMode ? 'text.primary' : 'inherit',
+                        },
+                        boxShadow: darkMode 
+                          ? '0 4px 6px rgba(0, 0, 0, 0.3)' 
+                          : '0 4px 6px rgba(0, 0, 0, 0.1)',
+                      }}
+                    >
+                      <Box sx={{ mb: 2 }}>
+                        <Typography 
+                          variant="h6" 
+                          sx={{ 
+                            mb: 1,
+                            fontWeight: 600,
+                            color: darkMode ? 'text.primary' : 'text.primary',
+                          }}
+                        >
+                          {list.title}
+                        </Typography>
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          onClick={() => {
+                            setSelectedListId(list.id);
+                            setNewTaskDialogOpen(true);
+                          }}
+                          sx={{
+                            borderColor: darkMode ? 'primary.main' : 'inherit',
+                            color: darkMode ? 'primary.main' : 'inherit',
+                          }}
+                        >
+                          Add Task
+                        </Button>
+                      </Box>
+                      
+                      <Droppable droppableId={`list-${list.id}`}>
                         {(provided) => (
-                          <Card
-                            ref={provided.innerRef}
-                            {...provided.draggableProps}
-                            {...provided.dragHandleProps}
-                            sx={{ 
-                              mb: 1,
-                              bgcolor: darkMode ? 'background.paper' : 'background.default',
-                              '&:hover': {
-                                boxShadow: darkMode 
-                                  ? '0 4px 8px rgba(0, 0, 0, 0.4)' 
-                                  : '0 4px 8px rgba(0, 0, 0, 0.2)',
-                              },
-                              transition: 'box-shadow 0.2s ease-in-out',
-                            }}
-                            onClick={() => {
-                              setSelectedTask(task);
-                              setCommentsOpen(true);
-                            }}
+                          <div 
+                            ref={provided.innerRef} 
+                            {...provided.droppableProps}
+                            style={{ minHeight: '100px' }}
                           >
-                            <CardContent>
-                              <Typography 
-                                variant="subtitle1"
-                                sx={{ 
-                                  color: darkMode ? 'text.primary' : 'inherit',
-                                  fontWeight: 500,
-                                }}
+                            {list.tasks && list.tasks.map((task, index) => (
+                              <Draggable
+                                key={task.id}
+                                draggableId={`task-${task.id}`}
+                                index={index}
                               >
-                                {task.title}
-                              </Typography>
-                              {task.description && (
-                                <Typography 
-                                  variant="body2" 
-                                  sx={{ 
-                                    color: darkMode ? 'text.secondary' : 'text.secondary',
-                                    mt: 1,
-                                  }}
-                                >
-                                  {task.description}
-                                </Typography>
-                              )}
-                            </CardContent>
-                          </Card>
+                                {(provided) => (
+                                  <Card
+                                    ref={provided.innerRef}
+                                    {...provided.draggableProps}
+                                    {...provided.dragHandleProps}
+                                    sx={{ 
+                                      mb: 1,
+                                      bgcolor: darkMode ? 'background.paper' : 'background.default',
+                                      '&:hover': {
+                                        boxShadow: darkMode 
+                                          ? '0 4px 8px rgba(0, 0, 0, 0.4)' 
+                                          : '0 4px 8px rgba(0, 0, 0, 0.2)',
+                                      },
+                                      transition: 'box-shadow 0.2s ease-in-out',
+                                    }}
+                                    onClick={() => {
+                                      setSelectedTask(task);
+                                      setCommentsOpen(true);
+                                    }}
+                                  >
+                                    <CardContent>
+                                      <Typography 
+                                        variant="subtitle1"
+                                        sx={{ 
+                                          color: darkMode ? 'text.primary' : 'inherit',
+                                          fontWeight: 500,
+                                        }}
+                                      >
+                                        {task.title}
+                                      </Typography>
+                                      {task.description && (
+                                        <Typography 
+                                          variant="body2" 
+                                          sx={{ 
+                                            color: darkMode ? 'text.secondary' : 'text.secondary',
+                                            mt: 1,
+                                          }}
+                                        >
+                                          {task.description}
+                                        </Typography>
+                                      )}
+                                    </CardContent>
+                                  </Card>
+                                )}
+                              </Draggable>
+                            ))}
+                            {provided.placeholder}
+                          </div>
                         )}
-                      </Draggable>
-                    ))}
-                    {provided.placeholder}
-                  </div>
-                )}
-              </Droppable>
-            </Paper>
-          ))}
-        </Box>
+                      </Droppable>
+                    </Paper>
+                  )}
+                </Draggable>
+              ))}
+              {provided.placeholder}
+            </Box>
+          )}
+        </Droppable>
       </DragDropContext>
 
       {/* New List Dialog */}

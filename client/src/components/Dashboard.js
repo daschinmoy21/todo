@@ -16,12 +16,18 @@ import {
   Box,
   CircularProgress,
   Breadcrumbs,
+  IconButton,
+  Avatar,
+  Chip,
 } from '@mui/material';
 import HomeIcon from '@mui/icons-material/Home';
 import AddIcon from '@mui/icons-material/Add';
-import { getBoards, createBoard } from '../services/api';
+import { getBoards, createBoard, getUserProfile, deleteBoard } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useDarkMode } from '../context/DarkModeContext';
+import { AccountCircle } from '@mui/icons-material';
+import UserSettingsPanel from './UserSettingsPanel';
+import { DarkMode as DarkModeIcon, LightMode as LightModeIcon } from '@mui/icons-material';
 
 function Dashboard() {
   const [boards, setBoards] = useState([]);
@@ -31,10 +37,22 @@ function Dashboard() {
   const [error, setError] = useState('');
   const navigate = useNavigate();
   const { logout } = useAuth();
-  const { darkMode } = useDarkMode();
+  const { darkMode, toggleDarkMode } = useDarkMode();
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [userProfile, setUserProfile] = useState(null);
+
+  const loadUserProfile = async () => {
+    try {
+      const response = await getUserProfile();
+      setUserProfile(response.data);
+    } catch (err) {
+      console.error('Error loading user profile:', err);
+    }
+  };
 
   useEffect(() => {
     loadBoards();
+    loadUserProfile();
   }, []);
 
   const loadBoards = async () => {
@@ -60,7 +78,13 @@ function Dashboard() {
     
     try {
       const response = await createBoard(newBoardTitle);
-      setBoards([response.data, ...boards]);
+      setBoards(prevBoards => [
+        {
+          ...response.data,
+          role: 'owner'
+        },
+        ...prevBoards
+      ]);
       setOpen(false);
       setNewBoardTitle('');
     } catch (err) {
@@ -72,6 +96,20 @@ function Dashboard() {
   const handleLogout = () => {
     logout();
     navigate('/login');
+  };
+
+  const handleDeleteBoard = async (boardId) => {
+    if (!window.confirm('Are you sure you want to delete this board? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      await deleteBoard(boardId);
+      setBoards(boards.filter(board => board.id !== boardId));
+    } catch (err) {
+      console.error('Error deleting board:', err);
+      setError('Failed to delete board');
+    }
   };
 
   if (loading) {
@@ -110,7 +148,50 @@ function Dashboard() {
         boxShadow: 1,
       }}>
         <Typography variant="h4" component="h1">My Boards</Typography>
-        <Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <IconButton
+            onClick={toggleDarkMode}
+            sx={{
+              mr: 2,
+              backgroundColor: darkMode ? 'background.default' : 'background.paper',
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                backgroundColor: darkMode ? 'background.default' : 'background.paper',
+                transform: 'rotate(180deg)',
+              },
+            }}
+          >
+            {darkMode ? (
+              <LightModeIcon sx={{ color: 'primary.main' }} />
+            ) : (
+              <DarkModeIcon sx={{ color: 'primary.main' }} />
+            )}
+          </IconButton>
+          <IconButton
+            onClick={() => setProfileOpen(true)}
+            sx={{ 
+              mr: 2,
+              width: 40,
+              height: 40,
+            }}
+            color="inherit"
+          >
+            {userProfile?.profile_picture ? (
+              <Avatar 
+                src={userProfile.profile_picture}
+                sx={{ 
+                  width: 40, 
+                  height: 40,
+                  border: '2px solid',
+                  borderColor: 'primary.main' 
+                }}
+              >
+                {userProfile.username?.[0]?.toUpperCase()}
+              </Avatar>
+            ) : (
+              <AccountCircle sx={{ width: 32, height: 32 }} />
+            )}
+          </IconButton>
           <Button 
             variant="contained" 
             onClick={() => setOpen(true)} 
@@ -119,7 +200,18 @@ function Dashboard() {
           >
             Create New Board
           </Button>
-          <Button variant="outlined" onClick={handleLogout}>
+          <Button 
+            variant="outlined" 
+            onClick={handleLogout}
+            sx={{
+              borderColor: darkMode ? 'primary.main' : 'inherit',
+              color: darkMode ? 'primary.main' : 'inherit',
+              '&:hover': {
+                borderColor: 'primary.main',
+                backgroundColor: darkMode ? 'rgba(33, 150, 243, 0.08)' : undefined,
+              },
+            }}
+          >
             Logout
           </Button>
         </Box>
@@ -136,7 +228,18 @@ function Dashboard() {
           <Grid item xs={12} sm={6} md={4} key={board.id}>
             <Card>
               <CardContent>
-                <Typography variant="h6">{board.title}</Typography>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                  <Typography variant="h6">{board.title}</Typography>
+                  <Chip 
+                    label={board.role}
+                    size="small"
+                    color={board.role === 'owner' ? 'primary' : board.role === 'admin' ? 'secondary' : 'default'}
+                    sx={{ textTransform: 'capitalize' }}
+                  />
+                </Box>
+                <Typography variant="caption" color="text.secondary">
+                  {new Date(board.created_at).toLocaleDateString()}
+                </Typography>
               </CardContent>
               <CardActions>
                 <Button
@@ -147,6 +250,15 @@ function Dashboard() {
                 >
                   Open Board
                 </Button>
+                {board.role === 'owner' && (
+                  <Button
+                    size="small"
+                    color="error"
+                    onClick={() => handleDeleteBoard(board.id)}
+                  >
+                    Delete
+                  </Button>
+                )}
               </CardActions>
             </Card>
           </Grid>
@@ -177,6 +289,14 @@ function Dashboard() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <UserSettingsPanel
+        open={profileOpen}
+        onClose={() => {
+          setProfileOpen(false);
+          loadUserProfile();
+        }}
+      />
     </Container>
   );
 }

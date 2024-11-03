@@ -54,4 +54,37 @@ export const createTaskComment = (taskId, comment_text) =>
 export const getBoardMessages = (boardId) =>
   api.get(`/boards/${boardId}/messages`);
 
+export const searchUsers = (query) =>
+  api.get(`/users/search?q=${query}`);
+
+export const getBoardMembers = (boardId) =>
+  api.get(`/boards/${boardId}/members`);
+
+export const addBoardMember = (boardId, userId, role) =>
+  api.post(`/boards/${boardId}/members`, { userId, role });
+
+export const removeBoardMember = (boardId, memberId) =>
+  api.delete(`/boards/${boardId}/members/${memberId}`);
+
+export const updateBoardMemberRole = (boardId, memberId, role) =>
+  api.patch(`/boards/${boardId}/members/${memberId}`, { role });
+
+export const moveList = (listId, newPosition, boardId) =>
+  api.patch(`/lists/${listId}/move`, { position: newPosition, boardId });
+
+export const createLabel = (boardId, name, color) =>
+  api.post(`/boards/${boardId}/labels`, { name, color });
+
+export const getLabels = (boardId) =>
+  api.get(`/boards/${boardId}/labels`);
+
+export const addLabelToTask = (taskId, labelId) =>
+  api.post(`/tasks/${taskId}/labels`, { labelId });
+
+export const removeLabelFromTask = (taskId, labelId) =>
+  api.delete(`/tasks/${taskId}/labels/${labelId}`);
+
+export const deleteBoard = (boardId) =>
+  api.delete(`/boards/${boardId}`);
+
 export default api; 
