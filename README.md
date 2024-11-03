@@ -1,100 +1,147 @@
 # Todo List Application with Kanban Boards
 
-A full-stack application for managing todo lists and kanban boards with user authentication.
-**[Work in Progress]**
+A full-stack application for managing todo lists and kanban boards with real-time chat, user authentication, and dark mode support.
+
+## Features
+
+- ✅ User Authentication (Register/Login)
+- ✅ Board Creation and Management
+- ✅ Kanban Board Interface
+- ✅ Real-time Board Chat
+- ✅ Dark Mode Support
+- ✅ Drag and Drop Tasks
+- ✅ Task Comments System
+- ✅ User Profiles
+- ✅ Board Member Management
+- ✅ Modern Material-UI Interface
 
 ## Tech Stack
 
-- Frontend: React.js with Material-UI
-- Backend: Node.js with Express
-- Database: PostgreSQL
-- Authentication: JWT
-- Containerization: Docker
-- Testing: Jest and React Testing Library
+### Frontend
+- React.js
+- Material-UI
+- Socket.IO Client
+- React Router
+- React Beautiful DnD
+- Context API for State Management
 
-## Current Status
+### Backend
+- Node.js
+- Express
+- PostgreSQL
+- Socket.IO
+- JWT Authentication
+- Bcrypt
 
-🚧 **Project Under Development** 🚧
-
-- ✅ Project structure setup
-- ✅ Docker configuration
-- 🏗️ Frontend development (In Progress)
-- 🏗️ Backend API implementation (In Progress)
-- ⏳ Database schema implementation (Pending)
-- ⏳ Authentication system (Pending)
-- ⏳ Testing suite (Pending)
+### Infrastructure
+- Docker
+- Docker Compose
 
 ## Prerequisites
 
-- Docker and Docker Compose installed on your machine
-- Git (optional)
+- Docker and Docker Compose installed
+- Node.js (for local development)
+- Git
 
-## Getting Started
+## Quick Start
 
-1. Clone the repository (or download the files)
+1. Clone the repository:
 ```bash
 git clone <repository-url>
-cd todo-kanban-app
+cd todo-app
 ```
 
-2. Environment Setup
+2. Create `.env` file in the root directory:
+```env
+DB_USER=postgres
+DB_PASSWORD=demos
+DB_NAME=tododb
+JWT_SECRET=your_generated_secret
+```
+
+3. Build and start the containers:
 ```bash
-# Copy the example env file
-cp .env.example .env
-# Update the .env file with your settings
+docker-compose up --build
 ```
 
-3. Start the Application
-```bash
-# Build and start all containers
-docker-compose up -d
-```
-
-4. Access the Application
+4. Access the application:
 - Frontend: http://localhost:3000
-- Backend API: http://localhost:8080
+- Backend API: http://localhost:5000
 
 ## Project Structure
 
 ```
-├── frontend/          # React frontend application
-│   ├── src/          # Source files
-│   ├── tests/        # Test files
-│   └── Dockerfile    # Frontend container configuration
-├── backend/          # Node.js backend API
-│   ├── src/          # Source files
-│   ├── tests/        # Test files
-│   └── Dockerfile    # Backend container configuration
-├── docker/           # Docker configuration files
-└── database/         # Database migrations and seeds
+todo-app/
+├── client/                 # React frontend
+│   ├── src/
+│   │   ├── components/    # React components
+│   │   ├── context/      # Context providers
+│   │   └── services/     # API services
+│   └── Dockerfile
+├── server/                # Node.js backend
+│   ├── src/
+│   │   └── index.js      # Main server file
+│   └── Dockerfile
+├── docker-compose.yml
+└── .env
 ```
 
-## API Documentation
+## Features in Detail
 
-The API documentation is available at `http://localhost:8080/api-docs` when running the application.
+### Authentication
+- User registration with username
+- Secure login with JWT
+- Password hashing with bcrypt
+
+### Board Management
+- Create and view boards
+- Add lists to boards
+- Create and manage tasks
+- Drag and drop tasks between lists
+
+### Real-time Features
+- Board chat with instant updates
+- Task comments
+- User presence indicators
+
+### User Interface
+- Dark/Light mode toggle
+- Responsive design
+- Modern Material-UI components
+- Intuitive navigation
 
 ## Database Schema
 
-See `schema.txt` for a detailed database schema diagram.
+The application uses PostgreSQL with the following main tables:
+- users
+- boards
+- lists
+- tasks
+- board_members
+- board_chat_messages
+- card_comments
 
 ## Development
 
-### Running Tests
-```bash
-# Frontend tests
-docker-compose exec frontend npm test
+To run the application in development mode:
 
-# Backend tests
-docker-compose exec backend npm test
+1. Start the database:
+```bash
+docker-compose up postgres
 ```
 
-### Linting
+2. Run the backend:
 ```bash
-# Frontend
-docker-compose exec frontend npm run lint
+cd server
+npm install
+npm run dev
+```
 
-# Backend
-docker-compose exec backend npm run lint
+3. Run the frontend:
+```bash
+cd client
+npm install
+npm start
 ```
 
 ## Contributing
@@ -105,21 +152,22 @@ docker-compose exec backend npm run lint
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details
-
 ## Known Issues
 
-- Database migrations not yet implemented
-- Authentication system under development
-- Test coverage incomplete
+- Chat messages require page refresh to show up initially
+- Some UI elements need dark mode refinement
+- Mobile responsiveness needs improvement
 
-## Roadmap
+## Future Enhancements
 
-1. Complete basic CRUD operations for todos
-2. Implement user authentication
-3. Add Kanban board functionality
-4. Implement drag-and-drop features
-5. Add unit and integration tests
-6. Deploy production version
+- [ ] Add file attachments to tasks
+- [ ] Implement board templates
+- [ ] Add due dates and reminders
+- [ ] Enhance mobile experience
+- [ ] Add activity log
+- [ ] Implement board sharing
+- [ ] Add task labels and filtering
+
+## License
+
+This project is licensed under the MIT License.
