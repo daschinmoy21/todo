@@ -1,0 +1,409 @@
+PostgreSQL Database Access Guide
+===============================
+
+1. Accessing the Database Container
+---------------------------------
+# Connect to the PostgreSQL container
+docker exec -it todo-postgres-1 bash
+
+# Once inside the container, connect to PostgreSQL as the postgres user
+psql -U postgres
+
+# Connect directly to the database (alternative method)
+docker exec -it todo-postgres-1 psql -U postgres -d tododb
+
+
+2. Basic PostgreSQL Commands
+--------------------------
+# List all databases
+\l
+
+# Connect to tododb database
+\c tododb
+
+# List all tables
+\dt
+
+# Show table structure
+\d+ table_name
+Example: \d+ users
+
+# Exit psql
+\q
+
+
+3. Useful SQL Queries
+-------------------
+# View all users
+SELECT * FROM users;
+
+# View all boards
+SELECT * FROM boards;
+
+# View all lists
+SELECT * FROM lists;
+
+# View all tasks
+SELECT * FROM tasks;
+
+# View all board messages
+SELECT * FROM board_chat_messages;
+
+# View board members
+SELECT * FROM board_members;
+
+# View card comments
+SELECT * FROM card_comments;
+
+
+4. Common Modifications
+---------------------
+# Add a new user manually
+INSERT INTO users (email, password) VALUES ('test@example.com', 'hashedpassword');
+
+# Delete a user
+DELETE FROM users WHERE email = 'test@example.com';
+
+# Update a board title
+UPDATE boards SET title = 'New Title' WHERE id = 1;
+
+# Delete a board and all its contents
+DELETE FROM boards WHERE id = 1;
+
+# Reset a user's password (replace 'newhashpassword' with actual bcrypt hash)
+UPDATE users SET password = 'newhashpassword' WHERE email = 'user@example.com';
+
+
+5. Advanced Queries
+-----------------
+# View all boards with their lists and tasks
+SELECT 
+    b.title as board_title,
+    l.title as list_title,
+    t.title as task_title
+FROM boards b
+LEFT JOIN lists l ON b.id = l.board_id
+LEFT JOIN tasks t ON l.id = t.list_id
+ORDER BY b.id, l.position, t.position;
+
+# View all users and their board count
+SELECT 
+    u.email,
+    COUNT(b.id) as board_count
+FROM users u
+LEFT JOIN boards b ON u.id = b.user_id
+GROUP BY u.id, u.email;
+
+# View all messages with user information
+SELECT 
+    m.message_text,
+    u.email,
+    m.created_at
+FROM board_chat_messages m
+JOIN users u ON m.user_id = u.id
+ORDER BY m.created_at DESC;
+
+
+6. Database Maintenance
+---------------------
+# Vacuum the database (cleanup and optimize)
+VACUUM ANALYZE;
+
+# Reset auto-increment counters
+ALTER SEQUENCE users_id_seq RESTART WITH 1;
+ALTER SEQUENCE boards_id_seq RESTART WITH 1;
+ALTER SEQUENCE lists_id_seq RESTART WITH 1;
+ALTER SEQUENCE tasks_id_seq RESTART WITH 1;
+
+
+7. Backup and Restore
+-------------------
+# Create backup (from host machine)
+docker exec -t todo-postgres-1 pg_dump -U postgres tododb > backup.sql
+
+# Restore backup (from host machine)
+cat backup.sql | docker exec -i todo-postgres-1 psql -U postgres -d tododb
+
+
+8. Troubleshooting
+----------------
+# Check database size
+SELECT pg_size_pretty(pg_database_size('tododb'));
+
+# Check table sizes
+SELECT 
+    relname as table_name,
+    pg_size_pretty(pg_total_relation_size(relid)) as total_size
+FROM pg_catalog.pg_statio_user_tables
+ORDER BY pg_total_relation_size(relid) DESC;
+
+# Check active connections
+SELECT * FROM pg_stat_activity WHERE datname = 'tododb';
+
+Note: Replace 'todo-postgres-1' with your actual container name if different.
+The container name can be found using 'docker ps' command. 
+
+9. Database Schema Documentation
+------------------------------
+
+ER Diagram
+----------
+[Place your ER diagram image here]
+
+Entity Sets:
+- Users (id, email, password, created_at)
+- Boards (id, title, user_id, created_at)
+- Lists (id, title, board_id, position, created_at)
+- Tasks (id, title, description, list_id, position, due_date, created_at)
+- BoardMembers (id, board_id, user_id, role, created_at)
+- BoardChatMessages (id, board_id, user_id, message_text, created_at)
+- CardComments (id, task_id, user_id, comment_text, created_at)
+
+Relational Schema
+----------------
+Users (_id_, email, password, created_at)
+Boards (_id_, title, user_id, created_at)
+    FK: user_id references Users(id)
+Lists (_id_, title, board_id, position, created_at)
+    FK: board_id references Boards(id)
+Tasks (_id_, title, description, list_id, position, due_date, created_at)
+    FK: list_id references Lists(id)
+BoardMembers (_id_, board_id, user_id, role, created_at)
+    FK: board_id references Boards(id)
+    FK: user_id references Users(id)
+BoardChatMessages (_id_, board_id, user_id, message_text, created_at)
+    FK: board_id references Boards(id)
+    FK: user_id references Users(id)
+CardComments (_id_, task_id, user_id, comment_text, created_at)
+    FK: task_id references Tasks(id)
+    FK: user_id references Users(id)
+
+Functional Dependencies
+---------------------
+Users: id → {email, password, created_at}
+Boards: id → {title, user_id, created_at}
+Lists: id → {title, board_id, position, created_at}
+Tasks: id → {title, description, list_id, position, due_date, created_at}
+BoardMembers: id → {board_id, user_id, role, created_at}
+BoardChatMessages: id → {board_id, user_id, message_text, created_at}
+CardComments: id → {task_id, user_id, comment_text, created_at}
+
+Normalization Applied
+-------------------
+The database is in 3NF (Third Normal Form):
+1. All tables have primary keys (1NF)
+2. No partial dependencies exist (2NF)
+3. No transitive dependencies exist (3NF)
+
+Sample Data (7 entries per table)
+-------------------------------
+# Insert sample users
+INSERT INTO users (email, password) VALUES
+('john@example.com', 'hash1'),
+('sarah@example.com', 'hash2'),
+('mike@example.com', 'hash3'),
+('lisa@example.com', 'hash4'),
+('david@example.com', 'hash5'),
+('emma@example.com', 'hash6'),
+('alex@example.com', 'hash7');
+
+# Insert sample boards
+INSERT INTO boards (title, user_id) VALUES
+('Project Alpha', 1),
+('Marketing Campaign', 2),
+('Personal Tasks', 3),
+('Team Goals', 4),
+('Development Sprint', 5),
+('Event Planning', 6),
+('Research Project', 7);
+
+[Continue with similar inserts for other tables...]
+
+Additional SQL Queries (15 Unique Questions)
+-----------------------------------------
+1. Find all boards where a user is both owner and has posted messages:
+```sql
+SELECT DISTINCT b.title, u.email
+FROM boards b
+JOIN board_chat_messages m ON b.id = m.board_id
+JOIN users u ON b.user_id = u.id AND m.user_id = u.id;
+```
+
+2. List users who have created the most tasks:
+```sql
+SELECT u.email, COUNT(t.id) as task_count
+FROM users u
+JOIN board_members bm ON u.id = bm.user_id
+JOIN boards b ON bm.board_id = b.id
+JOIN lists l ON b.id = l.board_id
+JOIN tasks t ON l.id = t.list_id
+GROUP BY u.id, u.email
+ORDER BY task_count DESC;
+```
+
+3. Find boards with the most active chat messages in the last 7 days:
+```sql
+SELECT b.title, COUNT(m.id) as message_count
+FROM boards b
+JOIN board_chat_messages m ON b.id = m.board_id
+WHERE m.created_at >= NOW() - INTERVAL '7 days'
+GROUP BY b.id, b.title
+ORDER BY message_count DESC;
+```
+
+4. List tasks that are in lists with "Urgent" in their title:
+```sql
+SELECT t.title as task_title, l.title as list_title, b.title as board_title
+FROM tasks t
+JOIN lists l ON t.list_id = l.id
+JOIN boards b ON l.board_id = b.id
+WHERE l.title ILIKE '%urgent%';
+```
+
+5. Find users who are members of multiple boards:
+```sql
+SELECT u.email, COUNT(DISTINCT bm.board_id) as board_count
+FROM users u
+JOIN board_members bm ON u.id = bm.user_id
+GROUP BY u.id, u.email
+HAVING COUNT(DISTINCT bm.board_id) > 1
+ORDER BY board_count DESC;
+```
+
+6. Show tasks with the most comments:
+```sql
+SELECT t.title, b.title as board_title, COUNT(cc.id) as comment_count
+FROM tasks t
+JOIN lists l ON t.list_id = l.id
+JOIN boards b ON l.board_id = b.id
+LEFT JOIN card_comments cc ON t.id = cc.task_id
+GROUP BY t.id, t.title, b.title
+ORDER BY comment_count DESC;
+```
+
+7. Find boards with no activity (no messages or comments) in the last 30 days:
+```sql
+SELECT b.title, b.created_at
+FROM boards b
+WHERE NOT EXISTS (
+    SELECT 1 FROM board_chat_messages m WHERE m.board_id = b.id 
+    AND m.created_at >= NOW() - INTERVAL '30 days'
+)
+AND NOT EXISTS (
+    SELECT 1 FROM lists l 
+    JOIN tasks t ON l.id = t.list_id
+    JOIN card_comments cc ON t.id = cc.task_id
+    WHERE l.board_id = b.id 
+    AND cc.created_at >= NOW() - INTERVAL '30 days'
+);
+```
+
+8. Show the distribution of tasks across lists for each board:
+```sql
+SELECT 
+    b.title as board_title,
+    l.title as list_title,
+    COUNT(t.id) as task_count,
+    ROUND(COUNT(t.id) * 100.0 / SUM(COUNT(t.id)) OVER (PARTITION BY b.id), 2) as percentage
+FROM boards b
+JOIN lists l ON b.id = l.board_id
+LEFT JOIN tasks t ON l.id = t.list_id
+GROUP BY b.id, b.title, l.id, l.title
+ORDER BY b.title, l.position;
+```
+
+9. Find users who have never created a board but are members of others' boards:
+```sql
+SELECT u.email
+FROM users u
+WHERE NOT EXISTS (SELECT 1 FROM boards b WHERE b.user_id = u.id)
+AND EXISTS (SELECT 1 FROM board_members bm WHERE bm.user_id = u.id);
+```
+
+10. Show tasks that have been moved between lists (based on position changes):
+```sql
+SELECT t.title, l.title as current_list, b.title as board
+FROM tasks t
+JOIN lists l ON t.list_id = l.id
+JOIN boards b ON l.board_id = b.id
+WHERE t.position != t.id
+ORDER BY t.updated_at DESC;
+```
+
+11. Find the most active time periods for board messages:
+```sql
+SELECT 
+    DATE_TRUNC('hour', created_at) as hour_block,
+    COUNT(*) as message_count
+FROM board_chat_messages
+GROUP BY hour_block
+ORDER BY message_count DESC
+LIMIT 10;
+```
+
+12. Show boards with all their lists and completion status:
+```sql
+SELECT 
+    b.title as board_title,
+    l.title as list_title,
+    COUNT(t.id) as total_tasks,
+    COUNT(CASE WHEN t.completed = true THEN 1 END) as completed_tasks,
+    ROUND(COUNT(CASE WHEN t.completed = true THEN 1 END) * 100.0 / NULLIF(COUNT(t.id), 0), 2) as completion_percentage
+FROM boards b
+LEFT JOIN lists l ON b.id = l.board_id
+LEFT JOIN tasks t ON l.id = t.list_id
+GROUP BY b.id, b.title, l.id, l.title
+ORDER BY b.title, l.position;
+```
+
+13. Find users who have contributed to the most different boards (through messages, comments, or task creation):
+```sql
+WITH user_contributions AS (
+    SELECT user_id FROM board_chat_messages
+    UNION
+    SELECT user_id FROM card_comments
+    UNION
+    SELECT user_id FROM board_members
+)
+SELECT 
+    u.email,
+    COUNT(DISTINCT uc.user_id) as contribution_count
+FROM users u
+JOIN user_contributions uc ON u.id = uc.user_id
+GROUP BY u.id, u.email
+ORDER BY contribution_count DESC;
+```
+
+14. Show the average time between task creation and first comment:
+```sql
+SELECT 
+    b.title as board_title,
+    AVG(cc.created_at - t.created_at) as avg_response_time
+FROM tasks t
+JOIN lists l ON t.list_id = l.id
+JOIN boards b ON l.board_id = b.id
+JOIN card_comments cc ON t.id = cc.task_id
+WHERE cc.id IN (
+    SELECT MIN(id) 
+    FROM card_comments 
+    GROUP BY task_id
+)
+GROUP BY b.id, b.title;
+```
+
+15. Find boards with perfect list/task hierarchy (all lists have tasks and all tasks have comments):
+```sql
+SELECT 
+    b.title,
+    COUNT(DISTINCT l.id) as list_count,
+    COUNT(DISTINCT t.id) as task_count,
+    COUNT(DISTINCT cc.id) as comment_count
+FROM boards b
+JOIN lists l ON b.id = l.board_id
+JOIN tasks t ON l.id = t.list_id
+JOIN card_comments cc ON t.id = cc.task_id
+GROUP BY b.id, b.title
+HAVING COUNT(DISTINCT l.id) > 0 
+    AND COUNT(DISTINCT t.id) >= COUNT(DISTINCT l.id)
+    AND COUNT(DISTINCT cc.id) >= COUNT(DISTINCT t.id);
+```

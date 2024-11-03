@@ -1,0 +1,143 @@
+Database Schema - Todo List Kanban Application
+=============================================
+
+Tables Structure:
+----------------
+
+[users]
++---------------+--------------+-------------------+
+| id            | uuid         | PK               |
+| username      | varchar(50)  | unique           |
+| email         | varchar(255) | unique           |
+| password_hash | varchar(255) |                  |
+| created_at    | timestamp    |                  |
+| updated_at    | timestamp    |                  |
++---------------+--------------+-------------------+
+
+[boards]
++---------------+--------------+-------------------+
+| id            | uuid         | PK               |
+| name          | varchar(100) |                  |
+| description   | text         |                  |
+| owner_id      | uuid         | FK -> users.id   |
+| created_at    | timestamp    |                  |
+| updated_at    | timestamp    |                  |
++---------------+--------------+-------------------+
+
+[columns]
++---------------+--------------+-------------------+
+| id            | uuid         | PK               |
+| name          | varchar(50)  |                  |
+| board_id      | uuid         | FK -> boards.id  |
+| order         | integer      |                  |
+| created_at    | timestamp    |                  |
+| updated_at    | timestamp    |                  |
++---------------+--------------+-------------------+
+
+[tasks]
++---------------+--------------+-------------------+
+| id            | uuid         | PK               |
+| title         | varchar(200) |                  |
+| description   | text         |                  |
+| column_id     | uuid         | FK -> columns.id |
+| order         | integer      |                  |
+| due_date      | timestamp    |                  |
+| assigned_to   | uuid         | FK -> users.id   |
+| created_by    | uuid         | FK -> users.id   |
+| created_at    | timestamp    |                  |
+| updated_at    | timestamp    |                  |
++---------------+--------------+-------------------+
+
+[board_members]
++---------------+--------------+-------------------+
+| board_id      | uuid         | FK -> boards.id  |
+| user_id       | uuid         | FK -> users.id   |
+| role          | varchar(20)  |                  |
+| created_at    | timestamp    |                  |
++---------------+--------------+-------------------+
+
+[task_labels]
++---------------+--------------+-------------------+
+| id            | uuid         | PK               |
+| name          | varchar(50)  |                  |
+| color         | varchar(7)   |                  |
+| board_id      | uuid         | FK -> boards.id  |
+| created_at    | timestamp    |                  |
++---------------+--------------+-------------------+
+
+[task_label_assignments]
++---------------+--------------+-------------------+
+| task_id       | uuid         | FK -> tasks.id   |
+| label_id      | uuid         | FK -> labels.id  |
++---------------+--------------+-------------------+
+
+Entity Relationship Diagram:
+--------------------------
+
+[USERS] 1──────┐
+    │          │
+    │          │ owns
+    │          ▼
+    │     [BOARDS]◄────────1:N─────┐
+    │          │                    │
+    │          │                    │
+    │    has   │                    │
+    │    1:N   │                    │
+    │          ▼                    │
+    │     [COLUMNS]                 │
+    │          │                    │
+    │          │                    │
+    │          │ contains           │
+    │          │ 1:N               has
+    │          ▼                    │
+    └───►   [TASKS]   ◄────────────┘
+    assigned_to│    │
+              │    │
+              │    │ has
+              │    │ M:N
+              │    ▼
+              │ [TASK_LABELS]
+              │
+              └─────► [BOARD_MEMBERS]
+                     (junction table)
+
+Cardinality Rules:
+-----------------
+1. User to Board (1:N)
+   - One user can own multiple boards
+   - Each board has exactly one owner
+
+2. Board to Column (1:N)
+   - One board can have multiple columns
+   - Each column belongs to exactly one board
+
+3. Column to Task (1:N)
+   - One column can have multiple tasks
+   - Each task belongs to exactly one column
+
+4. User to Task (1:N)
+   - One user can be assigned to multiple tasks
+   - Each task can be assigned to one user
+   - One user can create multiple tasks
+
+5. Board to Board Members (M:N)
+   - One board can have multiple members
+   - One user can be a member of multiple boards
+   - Relationship managed through board_members table
+
+6. Task to Labels (M:N)
+   - One task can have multiple labels
+   - One label can be applied to multiple tasks
+   - Relationship managed through task_label_assignments table
+
+7. Board to Labels (1:N)
+   - One board can have multiple labels
+   - Each label belongs to exactly one board
+
+Notes:
+------
+- All tables include created_at timestamps
+- Most tables include updated_at timestamps
+- UUIDs are used as primary keys for better distribution
+- Order fields in columns and tasks enable custom sorting
+- Role field in board_members enables permission management
