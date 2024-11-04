@@ -1,3 +1,8 @@
+/**
+ * Root component of the Todo List Application
+ * Handles routing and theme management
+ */
+
 import React, { useState, useMemo } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider, createTheme, CssBaseline } from '@mui/material';
@@ -8,9 +13,15 @@ import Board from './components/Board';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { DarkModeProvider, useDarkMode } from './context/DarkModeContext';
 
+/**
+ * AppWithTheme component handles theme configuration and application routing
+ */
 function AppWithTheme() {
   const { darkMode } = useDarkMode();
 
+  /**
+   * Create MUI theme based on dark mode preference
+   */
   const theme = useMemo(
     () =>
       createTheme({
@@ -59,6 +70,9 @@ function AppWithTheme() {
   );
 }
 
+/**
+ * PrivateRoute component handles authentication protection for routes
+ */
 const PrivateRoute = ({ children }) => {
   const { token } = useAuth();
   if (!token) {

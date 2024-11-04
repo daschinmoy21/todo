@@ -1,3 +1,8 @@
+/**
+ * ChatPanel Component
+ * Provides real-time chat functionality for board members
+ */
+
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Box,
@@ -20,6 +25,7 @@ import { useAuth } from '../context/AuthContext';
 import { formatDistanceToNow } from 'date-fns';
 
 function ChatPanel({ boardId, open, onClose }) {
+  // State management
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [socket, setSocket] = useState(null);
@@ -27,6 +33,7 @@ function ChatPanel({ boardId, open, onClose }) {
   const messagesEndRef = useRef(null);
   const { token } = useAuth();
 
+  // Initialize socket connection
   useEffect(() => {
     if (!token) return;
 
@@ -36,6 +43,7 @@ function ChatPanel({ boardId, open, onClose }) {
       auth: { token }
     });
 
+    // Socket event handlers
     newSocket.on('connect', () => {
       console.log('Socket connected successfully');
       setError('');
@@ -48,12 +56,14 @@ function ChatPanel({ boardId, open, onClose }) {
 
     setSocket(newSocket);
 
+    // Cleanup socket connection on unmount
     return () => {
       console.log('Cleaning up socket connection...');
       if (newSocket) newSocket.close();
     };
   }, [token]);
 
+  // Handle board-specific socket events
   useEffect(() => {
     if (!socket || !boardId) return;
 
@@ -78,10 +88,14 @@ function ChatPanel({ boardId, open, onClose }) {
     };
   }, [socket, boardId]);
 
+  // Auto-scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  /**
+   * Loads existing messages from the server
+   */
   const loadMessages = async () => {
     try {
       const response = await getBoardMessages(boardId);
@@ -96,6 +110,9 @@ function ChatPanel({ boardId, open, onClose }) {
     }
   };
 
+  /**
+   * Handles sending a new message
+   */
   const handleSendMessage = () => {
     if (!newMessage.trim() || !socket) return;
 
@@ -109,8 +126,6 @@ function ChatPanel({ boardId, open, onClose }) {
       message: newMessage.trim()
     });
 
-    // Don't clear the message until we get confirmation
-    // The message will be added to the list when we receive it back from the server
     setNewMessage('');
   };
 
@@ -129,6 +144,7 @@ function ChatPanel({ boardId, open, onClose }) {
         },
       }}
     >
+      {/* Chat header */}
       <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Typography variant="h6">Board Chat</Typography>
         <IconButton onClick={onClose}>
@@ -136,12 +152,14 @@ function ChatPanel({ boardId, open, onClose }) {
         </IconButton>
       </Box>
 
+      {/* Error message */}
       {error && (
         <Alert severity="error" sx={{ mx: 2, mb: 2 }}>
           {error}
         </Alert>
       )}
 
+      {/* Messages list */}
       <Box sx={{ 
         flexGrow: 1, 
         overflow: 'auto',
@@ -187,6 +205,7 @@ function ChatPanel({ boardId, open, onClose }) {
         </List>
       </Box>
 
+      {/* Message input */}
       <Box sx={{ p: 2, backgroundColor: 'background.paper' }}>
         <TextField
           fullWidth

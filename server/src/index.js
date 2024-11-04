@@ -1,3 +1,8 @@
+/**
+ * Main server file for the Todo List Application
+ * Sets up Express server, PostgreSQL connection, and Socket.IO
+ */
+
 const express = require('express');
 const cors = require('cors');
 const { Pool } = require('pg');
@@ -6,10 +11,14 @@ const bcrypt = require('bcrypt');
 const http = require('http');
 const { Server } = require('socket.io');
 
+// Initialize Express app
 const app = express();
+
+// Middleware
 app.use(cors());
 app.use(express.json());
 
+// Database configuration
 const pool = new Pool({
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
@@ -18,6 +27,10 @@ const pool = new Pool({
   port: 5432,
 });
 
+/**
+ * Attempts to connect to PostgreSQL with retries
+ * @returns {Promise<boolean>} Connection success status
+ */
 const waitForPostgres = async () => {
   let retries = 5;
   while (retries) {
@@ -25,12 +38,12 @@ const waitForPostgres = async () => {
       const client = await pool.connect();
       await client.query('SELECT 1');
       client.release();
-      console.log('Database connected successfully');
+      console.log('✅ Database connected successfully');
       return true;
     } catch (err) {
-      console.log(`Retrying database connection... (${retries} attempts remaining)`);
+      console.log(`⚠️ Retrying database connection... (${retries} attempts remaining)`);
       retries -= 1;
-      await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
+      await new Promise(resolve => setTimeout(resolve, 5000));
     }
   }
   return false;

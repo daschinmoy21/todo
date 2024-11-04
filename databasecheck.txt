@@ -194,3 +194,219 @@ The database is in 3NF (Third Normal Form):
 1. All tables have primary keys (1NF)
 2. No partial dependencies exist (2NF)
 3. No transitive dependencies exist (3NF)
+
+Sample Data (7 entries per table)
+-------------------------------
+# First, insert sample users and store their IDs
+INSERT INTO users (email, password, username, created_at) VALUES
+('john@example.com', 'hash1', 'JohnDoe', NOW()),
+('sarah@example.com', 'hash2', 'SarahSmith', NOW()),
+('mike@example.com', 'hash3', 'MikeJohnson', NOW()),
+('lisa@example.com', 'hash4', 'LisaBrown', NOW()),
+('david@example.com', 'hash5', 'DavidWilson', NOW()),
+('emma@example.com', 'hash6', 'EmmaClark', NOW()),
+('alex@example.com', 'hash7', 'AlexTaylor', NOW())
+RETURNING id;
+
+# Then, use the first user's ID for all boards (safer approach)
+INSERT INTO boards (title, user_id, created_at) VALUES
+('Project Alpha', (SELECT id FROM users WHERE email='john@example.com'), NOW()),
+('Marketing Campaign', (SELECT id FROM users WHERE email='john@example.com'), NOW()),
+('Personal Tasks', (SELECT id FROM users WHERE email='john@example.com'), NOW()),
+('Team Goals', (SELECT id FROM users WHERE email='john@example.com'), NOW()),
+('Development Sprint', (SELECT id FROM users WHERE email='john@example.com'), NOW()),
+('Event Planning', (SELECT id FROM users WHERE email='john@example.com'), NOW()),
+('Research Project', (SELECT id FROM users WHERE email='john@example.com'), NOW());
+
+# Insert sample lists using the first board's ID
+INSERT INTO lists (title, board_id, position, created_at) VALUES
+('To Do', (SELECT id FROM boards WHERE title='Project Alpha'), 0, NOW()),
+('In Progress', (SELECT id FROM boards WHERE title='Project Alpha'), 1, NOW()),
+('Code Review', (SELECT id FROM boards WHERE title='Project Alpha'), 2, NOW()),
+('Testing', (SELECT id FROM boards WHERE title='Project Alpha'), 3, NOW()),
+('Backlog', (SELECT id FROM boards WHERE title='Project Alpha'), 4, NOW()),
+('Implementation', (SELECT id FROM boards WHERE title='Project Alpha'), 5, NOW()),
+('Done', (SELECT id FROM boards WHERE title='Project Alpha'), 6, NOW());
+
+# Insert sample tasks (without due_date since it doesn't exist in the table)
+INSERT INTO tasks (title, description, list_id, position, created_at) VALUES
+('Setup Database', 'Configure PostgreSQL database', (SELECT id FROM lists WHERE title='To Do' LIMIT 1), 0, NOW()),
+('Design UI', 'Create mockups for main interface', (SELECT id FROM lists WHERE title='To Do' LIMIT 1), 1, NOW()),
+('API Documentation', 'Write API endpoints documentation', (SELECT id FROM lists WHERE title='To Do' LIMIT 1), 2, NOW()),
+('User Testing', 'Conduct user acceptance testing', (SELECT id FROM lists WHERE title='To Do' LIMIT 1), 3, NOW()),
+('Bug Fixes', 'Address reported issues', (SELECT id FROM lists WHERE title='To Do' LIMIT 1), 4, NOW()),
+('Feature Implementation', 'Implement new features', (SELECT id FROM lists WHERE title='To Do' LIMIT 1), 5, NOW()),
+('Code Review', 'Review pull requests', (SELECT id FROM lists WHERE title='To Do' LIMIT 1), 6, NOW());
+
+# Insert sample board members
+INSERT INTO board_members (board_id, user_id, role, created_at) VALUES
+((SELECT id FROM boards WHERE title='Project Alpha'), (SELECT id FROM users WHERE email='sarah@example.com'), 'member', NOW()),
+((SELECT id FROM boards WHERE title='Project Alpha'), (SELECT id FROM users WHERE email='mike@example.com'), 'admin', NOW()),
+((SELECT id FROM boards WHERE title='Project Alpha'), (SELECT id FROM users WHERE email='lisa@example.com'), 'member', NOW()),
+((SELECT id FROM boards WHERE title='Project Alpha'), (SELECT id FROM users WHERE email='david@example.com'), 'admin', NOW()),
+((SELECT id FROM boards WHERE title='Project Alpha'), (SELECT id FROM users WHERE email='emma@example.com'), 'member', NOW()),
+((SELECT id FROM boards WHERE title='Project Alpha'), (SELECT id FROM users WHERE email='alex@example.com'), 'admin', NOW()),
+((SELECT id FROM boards WHERE title='Marketing Campaign'), (SELECT id FROM users WHERE email='john@example.com'), 'member', NOW());
+
+# Insert sample board chat messages
+INSERT INTO board_chat_messages (board_id, user_id, message_text, created_at) VALUES
+((SELECT id FROM boards WHERE title='Project Alpha'), (SELECT id FROM users WHERE email='john@example.com'), 'Meeting at 2 PM today', NOW()),
+((SELECT id FROM boards WHERE title='Project Alpha'), (SELECT id FROM users WHERE email='sarah@example.com'), 'I''ll be there', NOW()),
+((SELECT id FROM boards WHERE title='Project Alpha'), (SELECT id FROM users WHERE email='mike@example.com'), 'Updated the designs', NOW()),
+((SELECT id FROM boards WHERE title='Project Alpha'), (SELECT id FROM users WHERE email='lisa@example.com'), 'Need review on this', NOW()),
+((SELECT id FROM boards WHERE title='Project Alpha'), (SELECT id FROM users WHERE email='david@example.com'), 'Great progress everyone!', NOW()),
+((SELECT id FROM boards WHERE title='Project Alpha'), (SELECT id FROM users WHERE email='emma@example.com'), 'Don''t forget the deadline', NOW()),
+((SELECT id FROM boards WHERE title='Project Alpha'), (SELECT id FROM users WHERE email='alex@example.com'), 'Added new requirements', NOW());
+
+# Insert sample card comments
+INSERT INTO card_comments (task_id, user_id, comment_text, created_at) VALUES
+((SELECT id FROM tasks WHERE title='Setup Database'), (SELECT id FROM users WHERE email='john@example.com'), 'Database schema looks good', NOW()),
+((SELECT id FROM tasks WHERE title='Design UI'), (SELECT id FROM users WHERE email='sarah@example.com'), 'Made requested changes', NOW()),
+((SELECT id FROM tasks WHERE title='API Documentation'), (SELECT id FROM users WHERE email='mike@example.com'), 'Need more details here', NOW()),
+((SELECT id FROM tasks WHERE title='User Testing'), (SELECT id FROM users WHERE email='lisa@example.com'), 'Testing completed successfully', NOW()),
+((SELECT id FROM tasks WHERE title='Bug Fixes'), (SELECT id FROM users WHERE email='david@example.com'), 'Fixed the reported bug', NOW()),
+((SELECT id FROM tasks WHERE title='Feature Implementation'), (SELECT id FROM users WHERE email='emma@example.com'), 'Implementation in progress', NOW()),
+((SELECT id FROM tasks WHERE title='Code Review'), (SELECT id FROM users WHERE email='alex@example.com'), 'Approved the changes', NOW());
+
+Additional SQL Queries (15 Simple Queries)
+-----------------------------------------
+1. Create a view for active boards:
+```sql
+CREATE VIEW active_boards AS
+SELECT b.title, u.email as owner, b.created_at
+FROM boards b
+JOIN users u ON b.user_id = u.id;
+```
+
+2. Create a simple trigger to update timestamp:
+```sql
+-- First create the function
+CREATE OR REPLACE FUNCTION update_timestamp()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Then create the trigger
+CREATE TRIGGER update_timestamp
+BEFORE UPDATE ON tasks
+FOR EACH ROW
+EXECUTE FUNCTION update_timestamp();
+```
+
+3. Count tasks per list (Aggregate Function):
+```sql
+SELECT l.title, COUNT(t.id) as task_count
+FROM lists l
+LEFT JOIN tasks t ON l.id = t.list_id
+GROUP BY l.title;
+```
+
+4. Find users with no boards (Subquery):
+```sql
+SELECT email 
+FROM users 
+WHERE id NOT IN (SELECT user_id FROM boards);
+```
+
+5. Add a new column to tasks table (DDL):
+```sql
+ALTER TABLE tasks
+ADD COLUMN priority VARCHAR(20);
+```
+
+6. Update task titles (DML):
+```sql
+-- Drop the existing trigger first
+DROP TRIGGER IF EXISTS update_timestamp ON tasks;
+
+-- Simple update
+UPDATE tasks
+SET title = CONCAT(title, ' - In Progress')
+WHERE position = 1;
+```
+
+7. Find boards with more than 5 lists:
+```sql
+SELECT b.title, COUNT(l.id) as list_count
+FROM boards b
+JOIN lists l ON b.id = l.board_id
+GROUP BY b.title
+HAVING COUNT(l.id) > 5;
+```
+
+8. Create a view for task lists:
+```sql
+CREATE VIEW task_lists AS
+SELECT t.title as task_title, 
+       l.title as list_name,
+       t.position,
+       t.created_at
+FROM tasks t
+JOIN lists l ON t.list_id = l.id
+ORDER BY l.title, t.position;
+```
+
+9. List users and their task counts:
+```sql
+SELECT u.email, COUNT(t.id) as total_tasks
+FROM users u
+LEFT JOIN boards b ON u.id = b.user_id
+LEFT JOIN lists l ON b.id = l.board_id
+LEFT JOIN tasks t ON l.id = t.list_id
+GROUP BY u.email;
+```
+
+10. Find the newest board for each user:
+```sql
+SELECT u.email, MAX(b.created_at) as latest_board
+FROM users u
+LEFT JOIN boards b ON u.id = b.user_id
+GROUP BY u.email;
+```
+
+11. Create index for faster searches:
+```sql
+CREATE INDEX idx_task_title 
+ON tasks(title);
+```
+
+12. Simple subquery for active members:
+```sql
+SELECT email
+FROM users
+WHERE id IN (
+    SELECT user_id 
+    FROM board_members 
+    WHERE role = 'active'
+);
+```
+
+13. Basic join for board messages:
+```sql
+SELECT u.email, m.message_text
+FROM users u
+JOIN board_chat_messages m ON u.id = m.user_id
+ORDER BY m.created_at DESC;
+```
+
+14. Create a simple trigger:
+```sql
+CREATE TRIGGER update_board_timestamp
+BEFORE UPDATE ON boards
+FOR EACH ROW
+EXECUTE FUNCTION update_timestamp();
+```
+
+15. Calculate average tasks per list:
+```sql
+SELECT b.title,
+       COUNT(t.id)::float / COUNT(DISTINCT l.id) as avg_tasks_per_list
+FROM boards b
+JOIN lists l ON b.id = l.board_id
+LEFT JOIN tasks t ON l.id = t.list_id
+GROUP BY b.title;
+```
+
