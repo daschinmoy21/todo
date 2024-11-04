@@ -1,3 +1,8 @@
+/**
+ * Board Component
+ * Handles individual board view with lists, tasks, and drag-and-drop functionality
+ */
+
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
 import {
@@ -18,19 +23,34 @@ import {
   IconButton,
 } from '@mui/material';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
-import { createList, createTask, getLists, getBoard, moveTask, moveList } from '../services/api';
+import {
+  ArrowBack as ArrowBackIcon,
+  Home as HomeIcon,
+  Add as AddIcon,
+  Chat as ChatIcon,
+  Group as GroupIcon,
+} from '@mui/icons-material';
+
+// Import components and services
+import { 
+  createList, 
+  createTask, 
+  getLists, 
+  getBoard, 
+  moveTask, 
+  moveList 
+} from '../services/api';
 import { useDarkMode } from '../context/DarkModeContext';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import HomeIcon from '@mui/icons-material/Home';
-import AddIcon from '@mui/icons-material/Add';
 import ChatPanel from './ChatPanel';
-import ChatIcon from '@mui/icons-material/Chat';
 import TaskComments from './TaskComments';
 import BoardMembers from './BoardMembers';
-import GroupIcon from '@mui/icons-material/Group';
 
+/**
+ * Board Component
+ * @component
+ */
 function Board() {
-  const { id: boardId } = useParams();
+  // State management
   const [board, setBoard] = useState(null);
   const [lists, setLists] = useState([]);
   const [newListDialogOpen, setNewListDialogOpen] = useState(false);
@@ -38,36 +58,45 @@ function Board() {
   const [newTaskDialogOpen, setNewTaskDialogOpen] = useState(false);
   const [selectedListId, setSelectedListId] = useState(null);
   const [newTaskData, setNewTaskData] = useState({ title: '', description: '' });
-  const { darkMode } = useDarkMode();
-  const navigate = useNavigate();
   const [chatOpen, setChatOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [membersDialogOpen, setMembersDialogOpen] = useState(false);
-  const [isDraggingList, setIsDraggingList] = useState(false);
   const [userRole, setUserRole] = useState(null);
 
-  useEffect(() => {
-    const loadBoardData = async () => {
-      try {
-        const [boardResponse, listsResponse] = await Promise.all([
-          getBoard(boardId),
-          getLists(boardId)
-        ]);
-        setBoard(boardResponse.data);
-        setLists(listsResponse.data);
-        setUserRole(boardResponse.data.role);
-      } catch (err) {
-        console.error('Error loading board data:', err);
-        if (err.response?.status === 404) {
-          navigate('/');
-        }
-      }
-    };
+  // Hooks
+  const { id: boardId } = useParams();
+  const { darkMode } = useDarkMode();
+  const navigate = useNavigate();
 
+  // Load initial data
+  useEffect(() => {
     loadBoardData();
   }, [boardId]);
 
+  /**
+   * Loads board data and lists
+   */
+  const loadBoardData = async () => {
+    try {
+      const [boardResponse, listsResponse] = await Promise.all([
+        getBoard(boardId),
+        getLists(boardId)
+      ]);
+      setBoard(boardResponse.data);
+      setLists(listsResponse.data);
+      setUserRole(boardResponse.data.role);
+    } catch (err) {
+      console.error('Error loading board data:', err);
+      if (err.response?.status === 404) {
+        navigate('/');
+      }
+    }
+  };
+
+  /**
+   * Handles list creation
+   */
   const handleCreateList = async () => {
     if (!newListTitle.trim()) return;
     
@@ -82,6 +111,9 @@ function Board() {
     }
   };
 
+  /**
+   * Handles task creation
+   */
   const handleCreateTask = async () => {
     if (!newTaskData.title.trim()) return;
 
@@ -96,6 +128,10 @@ function Board() {
     }
   };
 
+  /**
+   * Handles drag and drop functionality
+   * @param {Object} result - Drag and drop result object
+   */
   const onDragEnd = async (result) => {
     const { source, destination, draggableId, type } = result;
 
@@ -107,6 +143,7 @@ function Board() {
       return;
     }
 
+    // Handle list reordering
     if (type === 'list') {
       try {
         const newLists = Array.from(lists);
@@ -119,7 +156,6 @@ function Board() {
         }));
 
         setLists(updatedLists);
-
         await moveList(draggableId.split('-')[1], destination.index, boardId);
       } catch (err) {
         console.error('Error moving list:', err);
@@ -129,6 +165,7 @@ function Board() {
       return;
     }
 
+    // Handle task movement
     const sourceListId = source.droppableId.split('-')[1];
     const destinationListId = destination.droppableId.split('-')[1];
     const taskId = draggableId.split('-')[1];
@@ -142,11 +179,9 @@ function Board() {
       if (!sourceList || !destinationList) return;
 
       const [movedTask] = sourceList.tasks.splice(source.index, 1);
-      
       destinationList.tasks.splice(destination.index, 0, movedTask);
 
       setLists(newLists);
-
       await moveTask(taskId, parseInt(destinationListId), destination.index);
     } catch (err) {
       console.error('Error moving task:', err);
@@ -157,6 +192,7 @@ function Board() {
 
   return (
     <Container maxWidth="xl" sx={{ mt: 4 }}>
+      {/* Navigation */}
       <Box sx={{ mb: 4 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
           <IconButton 
@@ -190,6 +226,7 @@ function Board() {
         </Box>
       </Box>
 
+      {/* Board header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 4 }}>
         <Typography variant="h4">{board?.title}</Typography>
         <Box>
@@ -219,6 +256,7 @@ function Board() {
         </Box>
       </Box>
 
+      {/* Board components */}
       <BoardMembers
         boardId={boardId}
         open={membersDialogOpen}
@@ -232,6 +270,7 @@ function Board() {
         onClose={() => setChatOpen(false)}
       />
 
+      {/* Drag and drop context */}
       <DragDropContext onDragEnd={onDragEnd}>
         <Droppable droppableId="lists" direction="horizontal" type="list">
           {(provided) => (
@@ -269,6 +308,7 @@ function Board() {
                           : '0 4px 6px rgba(0, 0, 0, 0.1)',
                       }}
                     >
+                      {/* List header */}
                       <Box sx={{ mb: 2 }}>
                         <Typography 
                           variant="h6" 
@@ -296,6 +336,7 @@ function Board() {
                         </Button>
                       </Box>
                       
+                      {/* Tasks */}
                       <Droppable droppableId={`list-${list.id}`}>
                         {(provided) => (
                           <div 
@@ -369,7 +410,7 @@ function Board() {
         </Droppable>
       </DragDropContext>
 
-      {/* New List Dialog */}
+      {/* Dialogs */}
       <Dialog open={newListDialogOpen} onClose={() => setNewListDialogOpen(false)}>
         <DialogTitle>Create New List</DialogTitle>
         <DialogContent>
@@ -395,7 +436,6 @@ function Board() {
         </DialogActions>
       </Dialog>
 
-      {/* New Task Dialog */}
       <Dialog open={newTaskDialogOpen} onClose={() => setNewTaskDialogOpen(false)}>
         <DialogTitle>Create New Task</DialogTitle>
         <DialogContent>
@@ -444,4 +484,4 @@ function Board() {
   );
 }
 
-export default Board; 
+export default Board;

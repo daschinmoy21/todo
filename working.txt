@@ -1,0 +1,64 @@
+Development Workflow Guide
+=========================
+
+Getting Started
+--------------
+1. Clone repository
+2. Copy .env.example to .env and configure
+3. Run `docker-compose up --build`
+4. Access frontend at http://localhost:3000
+5. Access backend at http://localhost:5000
+
+Development Commands
+------------------
+- Start development: docker-compose up
+- Rebuild containers: docker-compose up --build
+- Stop containers: docker-compose down
+- View logs: docker-compose logs -f [service]
+- Access database: docker exec -it postgres psql -U postgres
+
+Database Management
+-----------------
+- Connect to database: psql -U postgres -d tododb
+- View tables: \dt
+- View table structure: \d+ table_name
+- Backup database: pg_dump -U postgres tododb > backup.sql
+- Restore database: psql -U postgres tododb < backup.sql
+
+Common Issues & Solutions
+-----------------------
+1. Database connection issues:
+   - Check PostgreSQL container health
+   - Verify environment variables
+   - Ensure correct port mapping
+
+2. Frontend build failures:
+   - Clear node_modules and rebuild
+   - Check package versions
+   - Verify environment variables
+
+3. Backend errors:
+   - Check logs with docker-compose logs server
+   - Verify database connection
+   - Check API endpoint responses
+
+4. Socket.IO issues:
+   - Verify WebSocket connection
+   - Check authentication token
+   - Monitor socket events in console
+
+Code Quality Checks
+-----------------
+1. Run linter: npm run lint
+2. Format code: npm run format
+3. Run tests: npm test
+4. Check types: npm run typecheck
+
+Deployment Steps
+--------------
+1. Build production images
+2. Set production environment variables
+3. Run database migrations
+4. Deploy containers
+5. Verify health checks
+6. Monitor logs and metrics 

@@ -1,3 +1,8 @@
+/**
+ * TaskLabels Component
+ * Handles label management for tasks including creation, assignment, and removal
+ */
+
 import React, { useState, useEffect } from 'react';
 import {
   Box,
@@ -15,18 +20,35 @@ import {
   CirclePicker,
 } from '@mui/material';
 import { Label as LabelIcon, Add as AddIcon } from '@mui/icons-material';
-import { createLabel, getLabels, addLabelToTask, removeLabelFromTask } from '../services/api';
+import { 
+  createLabel, 
+  getLabels, 
+  addLabelToTask, 
+  removeLabelFromTask 
+} from '../services/api';
 
+/**
+ * TaskLabels Component
+ * @param {Object} props - Component props
+ * @param {string} props.taskId - ID of the task
+ * @param {string} props.boardId - ID of the board
+ * @param {Array} props.existingLabels - Array of labels already assigned to the task
+ */
 function TaskLabels({ taskId, boardId, existingLabels = [] }) {
+  // State management
   const [labels, setLabels] = useState([]);
   const [anchorEl, setAnchorEl] = useState(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [newLabel, setNewLabel] = useState({ name: '', color: '#1976d2' });
 
+  // Load labels when component mounts or boardId changes
   useEffect(() => {
     loadLabels();
   }, [boardId]);
 
+  /**
+   * Loads all available labels for the board
+   */
   const loadLabels = async () => {
     try {
       const response = await getLabels(boardId);
@@ -36,6 +58,9 @@ function TaskLabels({ taskId, boardId, existingLabels = [] }) {
     }
   };
 
+  /**
+   * Handles label creation
+   */
   const handleCreateLabel = async () => {
     try {
       await createLabel(boardId, newLabel.name, newLabel.color);
@@ -47,6 +72,10 @@ function TaskLabels({ taskId, boardId, existingLabels = [] }) {
     }
   };
 
+  /**
+   * Handles adding a label to the task
+   * @param {string} labelId - ID of the label to add
+   */
   const handleAddLabel = async (labelId) => {
     try {
       await addLabelToTask(taskId, labelId);
@@ -57,6 +86,10 @@ function TaskLabels({ taskId, boardId, existingLabels = [] }) {
     setAnchorEl(null);
   };
 
+  /**
+   * Handles removing a label from the task
+   * @param {string} labelId - ID of the label to remove
+   */
   const handleRemoveLabel = async (labelId) => {
     try {
       await removeLabelFromTask(taskId, labelId);
@@ -68,6 +101,7 @@ function TaskLabels({ taskId, boardId, existingLabels = [] }) {
 
   return (
     <>
+      {/* Label display */}
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 1 }}>
         {existingLabels.map((label) => (
           <Chip
@@ -83,6 +117,7 @@ function TaskLabels({ taskId, boardId, existingLabels = [] }) {
         </IconButton>
       </Box>
 
+      {/* Label selection menu */}
       <Menu
         anchorEl={anchorEl}
         open={Boolean(anchorEl)}
@@ -116,6 +151,7 @@ function TaskLabels({ taskId, boardId, existingLabels = [] }) {
         </MenuItem>
       </Menu>
 
+      {/* Create label dialog */}
       <Dialog open={createDialogOpen} onClose={() => setCreateDialogOpen(false)}>
         <DialogTitle>Create New Label</DialogTitle>
         <DialogContent>

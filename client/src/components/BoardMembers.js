@@ -1,3 +1,8 @@
+/**
+ * BoardMembers Component
+ * Handles board member management including adding, removing, and role updates
+ */
+
 import React, { useState, useEffect } from 'react';
 import {
   Dialog,
@@ -32,7 +37,16 @@ import {
   searchUsers,
 } from '../services/api';
 
+/**
+ * BoardMembers Component
+ * @param {Object} props - Component props
+ * @param {string} props.boardId - ID of the board
+ * @param {boolean} props.open - Controls dialog visibility
+ * @param {Function} props.onClose - Handler for dialog close
+ * @param {string} props.userRole - Current user's role in the board
+ */
 function BoardMembers({ boardId, open, onClose, userRole }) {
+  // State management
   const [members, setMembers] = useState([]);
   const [newMemberEmail, setNewMemberEmail] = useState('');
   const [selectedRole, setSelectedRole] = useState('member');
@@ -40,12 +54,16 @@ function BoardMembers({ boardId, open, onClose, userRole }) {
   const [success, setSuccess] = useState('');
   const [searchResults, setSearchResults] = useState([]);
 
+  // Load members when dialog opens
   useEffect(() => {
     if (open) {
       loadMembers();
     }
   }, [open, boardId]);
 
+  /**
+   * Loads board members
+   */
   const loadMembers = async () => {
     try {
       const response = await getBoardMembers(boardId);
@@ -57,6 +75,10 @@ function BoardMembers({ boardId, open, onClose, userRole }) {
     }
   };
 
+  /**
+   * Handles user search
+   * @param {string} email - Email to search for
+   */
   const handleSearch = async (email) => {
     setNewMemberEmail(email);
     if (email.length > 2) {
@@ -73,6 +95,10 @@ function BoardMembers({ boardId, open, onClose, userRole }) {
     }
   };
 
+  /**
+   * Handles adding a new member
+   * @param {string} userId - ID of the user to add
+   */
   const handleAddMember = async (userId) => {
     try {
       await addBoardMember(boardId, userId, selectedRole);
@@ -88,6 +114,10 @@ function BoardMembers({ boardId, open, onClose, userRole }) {
     }
   };
 
+  /**
+   * Handles removing a member
+   * @param {string} userId - ID of the user to remove
+   */
   const handleRemoveMember = async (userId) => {
     try {
       await removeBoardMember(boardId, userId);
@@ -99,6 +129,11 @@ function BoardMembers({ boardId, open, onClose, userRole }) {
     }
   };
 
+  /**
+   * Handles role updates
+   * @param {string} userId - ID of the user
+   * @param {string} newRole - New role to assign
+   */
   const handleRoleChange = async (userId, newRole) => {
     try {
       await updateBoardMemberRole(boardId, userId, newRole);
@@ -117,9 +152,11 @@ function BoardMembers({ boardId, open, onClose, userRole }) {
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>Board Members</DialogTitle>
       <DialogContent>
+        {/* Error and success messages */}
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
         {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
 
+        {/* Add member section */}
         {canManageMembers && (
           <Box sx={{ mb: 3 }}>
             <Typography variant="h6" sx={{ mb: 2 }}>Add New Member</Typography>
@@ -157,6 +194,7 @@ function BoardMembers({ boardId, open, onClose, userRole }) {
           </Box>
         )}
 
+        {/* Members list */}
         <Typography variant="h6" sx={{ mb: 2 }}>Current Members</Typography>
         <List>
           {members.map((member) => (

@@ -1,3 +1,8 @@
+/**
+ * Dashboard Component
+ * Main landing page after login, displays user's boards and profile
+ */
+
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
@@ -20,27 +25,48 @@ import {
   Avatar,
   Chip,
 } from '@mui/material';
-import HomeIcon from '@mui/icons-material/Home';
-import AddIcon from '@mui/icons-material/Add';
+import {
+  Home as HomeIcon,
+  Add as AddIcon,
+  AccountCircle,
+  DarkMode as DarkModeIcon,
+  LightMode as LightModeIcon,
+} from '@mui/icons-material';
+
+// Import services and hooks
 import { getBoards, createBoard, getUserProfile, deleteBoard } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useDarkMode } from '../context/DarkModeContext';
-import { AccountCircle } from '@mui/icons-material';
 import UserSettingsPanel from './UserSettingsPanel';
-import { DarkMode as DarkModeIcon, LightMode as LightModeIcon } from '@mui/icons-material';
 
+/**
+ * Dashboard Component
+ * Shows user's boards and provides board management functionality
+ */
 function Dashboard() {
+  // State management
   const [boards, setBoards] = useState([]);
   const [open, setOpen] = useState(false);
   const [newBoardTitle, setNewBoardTitle] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const navigate = useNavigate();
-  const { logout } = useAuth();
-  const { darkMode, toggleDarkMode } = useDarkMode();
   const [profileOpen, setProfileOpen] = useState(false);
   const [userProfile, setUserProfile] = useState(null);
 
+  // Hooks
+  const navigate = useNavigate();
+  const { logout } = useAuth();
+  const { darkMode, toggleDarkMode } = useDarkMode();
+
+  // Load initial data
+  useEffect(() => {
+    loadBoards();
+    loadUserProfile();
+  }, []);
+
+  /**
+   * Loads user profile data
+   */
   const loadUserProfile = async () => {
     try {
       const response = await getUserProfile();
@@ -50,11 +76,9 @@ function Dashboard() {
     }
   };
 
-  useEffect(() => {
-    loadBoards();
-    loadUserProfile();
-  }, []);
-
+  /**
+   * Loads user's boards
+   */
   const loadBoards = async () => {
     try {
       setLoading(true);
@@ -73,6 +97,9 @@ function Dashboard() {
     }
   };
 
+  /**
+   * Handles board creation
+   */
   const handleCreateBoard = async () => {
     if (!newBoardTitle.trim()) return;
     
@@ -93,11 +120,10 @@ function Dashboard() {
     }
   };
 
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
-  };
-
+  /**
+   * Handles board deletion
+   * @param {string} boardId - ID of the board to delete
+   */
   const handleDeleteBoard = async (boardId) => {
     if (!window.confirm('Are you sure you want to delete this board? This action cannot be undone.')) {
       return;
@@ -112,6 +138,7 @@ function Dashboard() {
     }
   };
 
+  // Show loading spinner
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
@@ -122,6 +149,7 @@ function Dashboard() {
 
   return (
     <Container maxWidth="lg" sx={{ mt: 4 }}>
+      {/* Breadcrumbs navigation */}
       <Box sx={{ mb: 4 }}>
         <Breadcrumbs aria-label="breadcrumb">
           <Typography 
@@ -137,6 +165,7 @@ function Dashboard() {
         </Breadcrumbs>
       </Box>
 
+      {/* Header section */}
       <Box sx={{ 
         display: 'flex', 
         justifyContent: 'space-between', 
@@ -149,6 +178,7 @@ function Dashboard() {
       }}>
         <Typography variant="h4" component="h1">My Boards</Typography>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          {/* Dark mode toggle */}
           <IconButton
             onClick={toggleDarkMode}
             sx={{
@@ -167,6 +197,8 @@ function Dashboard() {
               <DarkModeIcon sx={{ color: 'primary.main' }} />
             )}
           </IconButton>
+
+          {/* User profile button */}
           <IconButton
             onClick={() => setProfileOpen(true)}
             sx={{ 
@@ -192,6 +224,8 @@ function Dashboard() {
               <AccountCircle sx={{ width: 32, height: 32 }} />
             )}
           </IconButton>
+
+          {/* Create board button */}
           <Button 
             variant="contained" 
             onClick={() => setOpen(true)} 
@@ -200,9 +234,14 @@ function Dashboard() {
           >
             Create New Board
           </Button>
+
+          {/* Logout button */}
           <Button 
             variant="outlined" 
-            onClick={handleLogout}
+            onClick={() => {
+              logout();
+              navigate('/login');
+            }}
             sx={{
               borderColor: darkMode ? 'primary.main' : 'inherit',
               color: darkMode ? 'primary.main' : 'inherit',
@@ -217,12 +256,14 @@ function Dashboard() {
         </Box>
       </Box>
 
+      {/* Error message */}
       {error && (
         <Typography color="error" sx={{ mb: 2 }}>
           {error}
         </Typography>
       )}
 
+      {/* Boards grid */}
       <Grid container spacing={3}>
         {boards.map((board) => (
           <Grid item xs={12} sm={6} md={4} key={board.id}>
@@ -265,6 +306,7 @@ function Dashboard() {
         ))}
       </Grid>
 
+      {/* Create board dialog */}
       <Dialog open={open} onClose={() => setOpen(false)}>
         <DialogTitle>Create New Board</DialogTitle>
         <DialogContent>
@@ -290,6 +332,7 @@ function Dashboard() {
         </DialogActions>
       </Dialog>
 
+      {/* User settings panel */}
       <UserSettingsPanel
         open={profileOpen}
         onClose={() => {
@@ -301,4 +344,4 @@ function Dashboard() {
   );
 }
 
-export default Dashboard; 
+export default Dashboard;

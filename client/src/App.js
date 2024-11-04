@@ -1,27 +1,30 @@
 /**
  * Root component of the Todo List Application
- * Handles routing and theme management
+ * Handles routing, theme management, and authentication
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider, createTheme, CssBaseline } from '@mui/material';
+
+// Component imports
 import Login from './components/Login';
 import Register from './components/Register';
 import Dashboard from './components/Dashboard';
 import Board from './components/Board';
+
+// Context imports
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { DarkModeProvider, useDarkMode } from './context/DarkModeContext';
 
 /**
- * AppWithTheme component handles theme configuration and application routing
+ * AppWithTheme component
+ * Handles theme configuration and application routing
  */
 function AppWithTheme() {
   const { darkMode } = useDarkMode();
 
-  /**
-   * Create MUI theme based on dark mode preference
-   */
+  // Create MUI theme based on dark mode preference
   const theme = useMemo(
     () =>
       createTheme({
@@ -71,7 +74,8 @@ function AppWithTheme() {
 }
 
 /**
- * PrivateRoute component handles authentication protection for routes
+ * PrivateRoute component
+ * Protects routes that require authentication
  */
 const PrivateRoute = ({ children }) => {
   const { token } = useAuth();
@@ -81,6 +85,10 @@ const PrivateRoute = ({ children }) => {
   return children;
 };
 
+/**
+ * AppRoutes component
+ * Defines application routing logic
+ */
 function AppRoutes() {
   const { token } = useAuth();
 
@@ -119,6 +127,10 @@ function AppRoutes() {
   );
 }
 
+/**
+ * Root App component
+ * Provides necessary context providers
+ */
 export default function App() {
   return (
     <Router>

@@ -1,3 +1,8 @@
+/**
+ * TaskComments Component
+ * Handles comments functionality for individual tasks
+ */
+
 import React, { useState, useEffect } from 'react';
 import {
   Dialog,
@@ -18,16 +23,29 @@ import {
 import { getTaskComments, createTaskComment } from '../services/api';
 import { formatDistanceToNow } from 'date-fns';
 
-function TaskComments({ taskId, open, onClose, taskTitle }) {
+/**
+ * TaskComments Component
+ * @param {Object} props - Component props
+ * @param {string} props.taskId - ID of the task
+ * @param {string} props.taskTitle - Title of the task
+ * @param {boolean} props.open - Controls dialog visibility
+ * @param {Function} props.onClose - Handler for dialog close
+ */
+function TaskComments({ taskId, taskTitle, open, onClose }) {
+  // State management
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState('');
 
+  // Load comments when dialog opens
   useEffect(() => {
     if (open && taskId) {
       loadComments();
     }
   }, [open, taskId]);
 
+  /**
+   * Loads comments for the task
+   */
   const loadComments = async () => {
     try {
       const response = await getTaskComments(taskId);
@@ -37,6 +55,9 @@ function TaskComments({ taskId, open, onClose, taskTitle }) {
     }
   };
 
+  /**
+   * Handles adding a new comment
+   */
   const handleAddComment = async () => {
     if (!newComment.trim()) return;
 
@@ -59,6 +80,7 @@ function TaskComments({ taskId, open, onClose, taskTitle }) {
       </DialogTitle>
       <DialogContent>
         <Box sx={{ height: '400px', display: 'flex', flexDirection: 'column' }}>
+          {/* Comments list */}
           <List sx={{ flex: 1, overflow: 'auto' }}>
             {comments.map((comment) => (
               <React.Fragment key={comment.comment_id}>
@@ -84,6 +106,8 @@ function TaskComments({ taskId, open, onClose, taskTitle }) {
               </React.Fragment>
             ))}
           </List>
+
+          {/* Comment input */}
           <Box sx={{ mt: 2, p: 2, backgroundColor: 'background.paper' }}>
             <TextField
               fullWidth

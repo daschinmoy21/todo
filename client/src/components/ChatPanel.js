@@ -1,6 +1,6 @@
 /**
  * ChatPanel Component
- * Provides real-time chat functionality for board members
+ * Provides real-time chat functionality for board members using Socket.IO
  */
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -24,6 +24,13 @@ import { getBoardMessages } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { formatDistanceToNow } from 'date-fns';
 
+/**
+ * ChatPanel Component
+ * @param {Object} props - Component props
+ * @param {string} props.boardId - ID of the board
+ * @param {boolean} props.open - Controls drawer visibility
+ * @param {Function} props.onClose - Handler for drawer close
+ */
 function ChatPanel({ boardId, open, onClose }) {
   // State management
   const [messages, setMessages] = useState([]);
@@ -75,7 +82,7 @@ function ChatPanel({ boardId, open, onClose }) {
     socket.on('new-message', (message) => {
       console.log('Received new message:', message);
       setMessages(prev => [...prev, message]);
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      scrollToBottom();
     });
 
     // Load existing messages
@@ -90,8 +97,15 @@ function ChatPanel({ boardId, open, onClose }) {
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    scrollToBottom();
   }, [messages]);
+
+  /**
+   * Scrolls chat to the bottom
+   */
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
 
   /**
    * Loads existing messages from the server
@@ -101,9 +115,7 @@ function ChatPanel({ boardId, open, onClose }) {
       const response = await getBoardMessages(boardId);
       setMessages(response.data);
       // Scroll to bottom after loading messages
-      setTimeout(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-      }, 100);
+      setTimeout(scrollToBottom, 100);
     } catch (err) {
       console.error('Error loading messages:', err);
       setError('Failed to load messages');
@@ -127,6 +139,17 @@ function ChatPanel({ boardId, open, onClose }) {
     });
 
     setNewMessage('');
+  };
+
+  /**
+   * Handles Enter key press in message input
+   * @param {Event} e - Keyboard event
+   */
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
   };
 
   return (
@@ -213,12 +236,7 @@ function ChatPanel({ boardId, open, onClose }) {
           placeholder="Type a message..."
           value={newMessage}
           onChange={(e) => setNewMessage(e.target.value)}
-          onKeyPress={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault();
-              handleSendMessage();
-            }
-          }}
+          onKeyPress={handleKeyPress}
           multiline
           maxRows={4}
           InputProps={{

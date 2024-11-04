@@ -1,3 +1,8 @@
+/**
+ * UserSettingsPanel Component
+ * Handles user profile settings and updates
+ */
+
 import React, { useState, useEffect } from 'react';
 import {
   Dialog,
@@ -13,10 +18,22 @@ import {
   Alert,
   CircularProgress,
 } from '@mui/material';
-import { PhotoCamera, Edit } from '@mui/icons-material';
+import { PhotoCamera } from '@mui/icons-material';
 import { getUserProfile, updateUserProfile } from '../services/api';
 
+/**
+ * Maximum allowed image size in bytes (5MB)
+ */
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
+
+/**
+ * UserSettingsPanel Component
+ * @param {Object} props - Component props
+ * @param {boolean} props.open - Controls dialog visibility
+ * @param {Function} props.onClose - Handler for dialog close
+ */
 function UserSettingsPanel({ open, onClose }) {
+  // State management
   const [profile, setProfile] = useState({
     username: '',
     email: '',
@@ -28,12 +45,16 @@ function UserSettingsPanel({ open, onClose }) {
   const [loading, setLoading] = useState(false);
   const [imageLoading, setImageLoading] = useState(false);
 
+  // Load user profile when dialog opens
   useEffect(() => {
     if (open) {
       loadProfile();
     }
   }, [open]);
 
+  /**
+   * Loads user profile data from the server
+   */
   const loadProfile = async () => {
     try {
       setLoading(true);
@@ -48,11 +69,15 @@ function UserSettingsPanel({ open, onClose }) {
     }
   };
 
+  /**
+   * Handles image upload and processing
+   * @param {Event} event - File input change event
+   */
   const handleImageUpload = async (event) => {
     const file = event.target.files[0];
     if (!file) return;
 
-    if (file.size > 5 * 1024 * 1024) {
+    if (file.size > MAX_IMAGE_SIZE) {
       setError('Image size should be less than 5MB');
       return;
     }
@@ -64,8 +89,24 @@ function UserSettingsPanel({ open, onClose }) {
 
     try {
       setImageLoading(true);
+      const compressedImage = await compressImage(file);
+      setProfile(prev => ({ ...prev, profile_picture: compressedImage }));
+    } catch (err) {
+      console.error('Error processing image:', err);
+      setError('Failed to process image');
+    } finally {
+      setImageLoading(false);
+    }
+  };
+
+  /**
+   * Compresses and converts image to base64
+   * @param {File} file - Image file to compress
+   * @returns {Promise<string>} Compressed image as base64 string
+   */
+  const compressImage = (file) => {
+    return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      
       reader.onloadend = () => {
         const img = new Image();
         img.src = reader.result;
@@ -76,8 +117,7 @@ function UserSettingsPanel({ open, onClose }) {
           const MAX_WIDTH = 800;
           const MAX_HEIGHT = 800;
           
-          let width = img.width;
-          let height = img.height;
+          let { width, height } = img;
           
           if (width > height) {
             if (width > MAX_WIDTH) {
@@ -95,22 +135,18 @@ function UserSettingsPanel({ open, onClose }) {
           canvas.height = height;
           
           ctx.drawImage(img, 0, 0, width, height);
-          
-          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
-          
-          setProfile(prev => ({ ...prev, profile_picture: compressedBase64 }));
-          setImageLoading(false);
+          resolve(canvas.toDataURL('image/jpeg', 0.7));
         };
+        img.onerror = reject;
       };
-
+      reader.onerror = reject;
       reader.readAsDataURL(file);
-    } catch (err) {
-      console.error('Error processing image:', err);
-      setError('Failed to process image');
-      setImageLoading(false);
-    }
+    });
   };
 
+  /**
+   * Handles profile update submission
+   */
   const handleSave = async () => {
     if (!profile.username?.trim()) {
       setError('Username is required');
@@ -133,6 +169,7 @@ function UserSettingsPanel({ open, onClose }) {
     }
   };
 
+  // Show loading spinner while initially loading profile
   if (loading && !profile.username) {
     return (
       <Dialog open={open} onClose={onClose}>
@@ -159,10 +196,13 @@ function UserSettingsPanel({ open, onClose }) {
     >
       <DialogTitle>User Settings</DialogTitle>
       <DialogContent>
+        {/* Error and success messages */}
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
         {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
 
+        {/* Profile form */}
         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 3 }}>
+          {/* Profile picture section */}
           <Box sx={{ position: 'relative', mb: 2 }}>
             {imageLoading ? (
               <Box sx={{ width: 100, height: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -204,6 +244,7 @@ function UserSettingsPanel({ open, onClose }) {
             </IconButton>
           </Box>
 
+          {/* Form fields */}
           <TextField
             fullWidth
             label="Username"
@@ -233,6 +274,8 @@ function UserSettingsPanel({ open, onClose }) {
           />
         </Box>
       </DialogContent>
+
+      {/* Dialog actions */}
       <DialogActions sx={{ px: 3, pb: 3 }}>
         <Button 
           onClick={onClose}
@@ -252,4 +295,4 @@ function UserSettingsPanel({ open, onClose }) {
   );
 }
 
-export default UserSettingsPanel; 
+export default UserSettingsPanel;

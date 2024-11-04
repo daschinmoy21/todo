@@ -1,3 +1,8 @@
+/**
+ * Login Component
+ * Handles user authentication and login functionality
+ */
+
 import React, { useState } from 'react';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import {
@@ -12,28 +17,46 @@ import {
   InputAdornment,
   Divider,
 } from '@mui/material';
-import { Brightness4, Brightness7, Visibility, VisibilityOff } from '@mui/icons-material';
+import { 
+  Brightness4, 
+  Brightness7, 
+  Visibility, 
+  VisibilityOff 
+} from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
 import { useDarkMode } from '../context/DarkModeContext';
 import { login } from '../services/api';
 
+/**
+ * Login Component
+ * Provides user login functionality with form validation and error handling
+ */
 function Login() {
+  // State management
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+  
+  // Hooks
   const navigate = useNavigate();
   const { login: authLogin } = useAuth();
   const { darkMode, toggleDarkMode } = useDarkMode();
 
+  /**
+   * Handles form submission
+   * @param {Event} e - Form submission event
+   */
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
     try {
       const response = await login(email, password);
       authLogin(response.data.token);
       navigate('/');
     } catch (err) {
       setError('Invalid credentials');
+      console.error('Login error:', err);
     }
   };
 
@@ -49,6 +72,7 @@ function Login() {
           position: 'relative',
         }}
       >
+        {/* Dark mode toggle */}
         <IconButton
           onClick={toggleDarkMode}
           sx={{ position: 'absolute', top: 24, right: 24 }}
@@ -71,6 +95,7 @@ function Login() {
           </Typography>
 
           <Box component="form" onSubmit={handleSubmit} sx={{ width: '100%' }}>
+            {/* Email field */}
             <TextField
               margin="normal"
               required
@@ -82,6 +107,8 @@ function Login() {
               onChange={(e) => setEmail(e.target.value)}
               sx={{ mb: 2 }}
             />
+
+            {/* Password field */}
             <TextField
               margin="normal"
               required
@@ -106,12 +133,14 @@ function Login() {
               sx={{ mb: 2 }}
             />
 
+            {/* Error message */}
             {error && (
               <Typography color="error" sx={{ mt: 1, mb: 2 }}>
                 {error}
               </Typography>
             )}
 
+            {/* Submit button */}
             <Button
               type="submit"
               fullWidth
@@ -128,6 +157,7 @@ function Login() {
               </Typography>
             </Divider>
 
+            {/* Registration link */}
             <Box sx={{ textAlign: 'center' }}>
               <Typography variant="body2" color="textSecondary">
                 Don't have an account?{' '}

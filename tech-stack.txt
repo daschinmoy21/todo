@@ -1,0 +1,68 @@
+Todo List Application Tech Stack
+==============================
+
+Frontend
+--------
+- React 17.x
+- Material-UI 5.x
+- React Router 6.x
+- Socket.IO Client
+- Axios
+- React Beautiful DnD
+- Date-fns
+
+Backend
+-------
+- Node.js 16.x
+- Express 4.x
+- PostgreSQL 14
+- Socket.IO
+- JWT Authentication
+- Bcrypt
+
+Development Tools
+---------------
+- Docker & Docker Compose
+- ESLint
+- Prettier
+- Nodemon
+- Git
+
+Infrastructure
+-------------
+- Docker containers
+- PostgreSQL database
+- Node.js server
+- React development server
+
+Security Features
+---------------
+- JWT token authentication
+- Password hashing with bcrypt
+- CORS protection
+- Environment variables
+- Non-root Docker users
+
+Development Environment
+---------------------
+- Hot reloading for frontend and backend
+- Docker volume mounting for development
+- Environment variable management
+- Database initialization scripts
+- Health checks
+
+Monitoring & Debugging
+--------------------
+- Console logging
+- Docker health checks
+- Database connection retries
+- Socket connection monitoring
+- Error tracking
+
+Deployment Considerations
+-----------------------
+- Production Docker builds
+- Environment configuration
+- Database migrations
+- Security hardening
+- Performance optimization 

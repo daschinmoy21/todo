@@ -1,3 +1,8 @@
+/**
+ * Register Component
+ * Handles new user registration functionality
+ */
+
 import React, { useState } from 'react';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import {
@@ -16,7 +21,12 @@ import {
 import { Visibility, VisibilityOff } from '@mui/icons-material';
 import { register } from '../services/api';
 
+/**
+ * Register Component
+ * Provides user registration with form validation and error handling
+ */
 function Register() {
+  // Form state management
   const [formData, setFormData] = useState({
     username: '',
     email: '',
@@ -26,8 +36,14 @@ function Register() {
   const [error, setError] = useState('');
   const navigate = useNavigate();
 
+  /**
+   * Handles form submission
+   * @param {Event} e - Form submission event
+   */
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Validate username
     if (!formData.username.trim()) {
       setError('Username is required');
       return;
@@ -38,6 +54,7 @@ function Register() {
       navigate('/login');
     } catch (err) {
       setError(err.response?.data?.error || 'Registration failed');
+      console.error('Registration error:', err);
     }
   };
 
@@ -67,6 +84,7 @@ function Register() {
           </Typography>
 
           <Box component="form" onSubmit={handleSubmit} sx={{ width: '100%' }}>
+            {/* Username field */}
             <TextField
               margin="normal"
               required
@@ -77,6 +95,8 @@ function Register() {
               onChange={(e) => setFormData({ ...formData, username: e.target.value })}
               sx={{ mb: 2 }}
             />
+
+            {/* Email field */}
             <TextField
               margin="normal"
               required
@@ -87,6 +107,8 @@ function Register() {
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               sx={{ mb: 2 }}
             />
+
+            {/* Password field */}
             <TextField
               margin="normal"
               required
@@ -110,12 +132,14 @@ function Register() {
               sx={{ mb: 2 }}
             />
 
+            {/* Error message */}
             {error && (
               <Alert severity="error" sx={{ mb: 2 }}>
                 {error}
               </Alert>
             )}
 
+            {/* Submit button */}
             <Button
               type="submit"
               fullWidth
@@ -132,6 +156,7 @@ function Register() {
               </Typography>
             </Divider>
 
+            {/* Login link */}
             <Box sx={{ textAlign: 'center' }}>
               <Typography variant="body2" color="textSecondary">
                 Already have an account?{' '}

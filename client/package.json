@@ -2,6 +2,9 @@
   "name": "todo-app-client",
   "version": "0.1.0",
   "private": true,
+  "description": "Frontend for the Todo List Application with Kanban boards",
+  "author": "Your Name",
+  "license": "MIT",
   "dependencies": {
     "@emotion/react": "^11.7.1",
     "@emotion/styled": "^11.6.0",
@@ -21,7 +24,9 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "lint": "eslint src",
+    "format": "prettier --write src/**/*.{js,jsx,css}"
   },
   "browserslist": {
     "production": [
@@ -34,5 +39,9 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
+  },
+  "devDependencies": {
+    "eslint": "^8.0.0",
+    "prettier": "^2.5.1"
   }
 } 
